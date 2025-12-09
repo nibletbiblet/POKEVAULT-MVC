@@ -1,11 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title><%= title %></title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PokeVault</title>
+
+<link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+
+<style>
+/* ------------------ PIKACHU THEME COLORS ------------------ */
+:root {
+    --pika-yellow: #FFD800;
+    --pika-light: #FFF4A3;
+    --pika-orange: #FFB100;
+    --pika-black: #2B2B2B;
+    --pika-gray: #F0F0F0;
+    --pika-shadow: rgba(255, 216, 0, 0.6);
+}
+
+/* ------------------ GLOBAL SETTINGS ------------------ */
+body {
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(180deg, #FFF8C9, #FFE873);
+    font-family: "Poppins", sans-serif;
+}
+
+/* ------------------ NAVBAR ------------------ */
+.navbar {
+    width: 100%;
+    height: 70px;
+    background: var(--pika-yellow);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    box-shadow: 0 4px 12px var(--pika-shadow);
+    position: fixed;
+    top: 0;
+    z-index: 1000;
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.nav-left img {
+    width: 40px;
+}
+
+.nav-left h1 {
+    color: var(--pika-black);
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+}
+
+.nav-right i {
+    font-size: 24px;
+    color: var(--pika-black);
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.nav-right i:hover {
+    color: var(--pika-orange);
+}
+
+/* ------------------ HERO SECTION ------------------ */
+.hero {
+    margin-top: 120px;
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.hero h2 {
+    font-size: 48px;
+    font-weight: 800;
+    color: var(--pika-black);
+    text-shadow: 2px 2px var(--pika-orange);
+}
+
+.hero p {
+    margin-top: 10px;
+    font-size: 18px;
+    color: #444;
+}
+
+.hero-btn {
+    margin-top: 30px;
+    padding: 15px 40px;
+    font-size: 20px;
+    font-weight: 700;
+    border: none;
+    color: var(--pika-black);
+    background: linear-gradient(135deg, var(--pika-orange), var(--pika-yellow));
+    box-shadow: 0 0 15px var(--pika-shadow);
+    border-radius: 40px;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+.hero-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px var(--pika-orange);
+}
+
+/* ------------------ FULLSCREEN IMAGE PAGE ------------------ */
+.hidden-page {
+    display: none;
+    width: 100%;
+    height: 100vh;
+    background-size: cover;
+    background-position: center;
+}
+
+</style>
 </head>
 <body>
-  <h1>Welcome to PokéVault 🕹️</h1>
-  <p>Your Pokémon MVC app is working!</p>
+
+<!-- NAVBAR -->
+<div class="navbar">
+    <div class="nav-left">
+        <img src="https://cdn-icons-png.flaticon.com/512/188/188918.png" alt="Pikachu">
+        <h1>PokeVault</h1>
+    </div>
+
+    <div class="nav-right">
+        <i class='bx bx-search'></i>
+        <i class='bx bx-cart'></i>
+        <i class='bx bx-user'></i>
+    </div>
+</div>
+
+<!-- HERO SECTION -->
+<div class="hero" id="mainPage">
+    <h2>Welcome Trainer!</h2>
+    <p>Your Pokémon Trading Adventure Starts Now ⚡</p>
+    
+    <button class="hero-btn" onclick="enterSite()">
+        Get Ready to Start
+    </button>
+</div>
+
+<!-- PAGE AFTER CLICKING BUTTON -->
+<div class="hidden-page" id="nextPage"
+     style="background-image: url('https://wallpapercg.com/media/ts_orig/4618.webp');">
+</div>
+
+<script>
+function enterSite() {
+    document.getElementById("mainPage").style.display = "none";
+    document.getElementById("nextPage").style.display = "block";
+}
+</script>
+
 </body>
 </html>

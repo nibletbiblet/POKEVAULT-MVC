@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Register Form</title>
+
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+
+:root {
+    --white: #FFFFFF;
+    --black: #1A1A1A;
+
+    --pika-yellow: #FFDE00;     /* Main Pikachu Yellow */
+    --pika-electric: #FFE74A;   /* Bright electric highlight */
+    --pika-orange: #F7A400;     /* Cheek orange */
+    --pika-outline: #2B2B2B;    /* Strong outline */
+    --pika-shadow: rgba(255, 222, 0, 0.6); /* glowing yellow */
+
+    --panel-bg: #FFF9D0;       /* soft warm yellow panel */
+}
+
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+body{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: var(--black);
+}
+
+/* MAIN BOX */
+.wrapper{
+    position: relative;
+    width: 750px;
+    height: 450px;
+    background: var(--panel-bg);
+    border: 3px solid var(--pika-orange);
+    box-shadow: 0 0 25px var(--pika-shadow);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* FORM BOXES */
+.wrapper .form-box{
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.wrapper .form-box.login{
+    left: 0;
+    padding: 0 60px 0 40px;
+}
+
+.form-box h2{
+    margin-bottom: 10px;
+    position: relative;
+    font-size: 32px;
+    color: var(--black);
+    text-align: center;
+}
+
+.form-box h2::after{
+    content: "";
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 45px;
+    height: 4px;
+    background: var(--pika-orange);
+}
+
+/* INPUT FIELDS */
+.input-box{
+    position: relative;
+    width: 100%;
+    height: 40px;
+    margin: 25px 0;
+}
+
+.input-box input{
+    width: 100%;
+    height: 100%;
+    background: var(--white);
+    color: var(--black);
+    font-size: 16px;
+    border: none;
+    outline: none;
+    border-bottom: 3px solid var(--pika-orange);
+    padding-right: 25px;
+    transition: 0.4s;
+}
+
+.input-box input:focus,
+.input-box input:valid{
+    border-bottom-color: var(--pika-yellow);
+}
+
+.input-box label{
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: var(--black);
+    pointer-events: none;
+    transition: 0.4s;
+}
+
+.input-box input:focus ~ label,
+.input-box input:valid ~ label{
+    top: -6px;
+    color: var(--pika-orange);
+}
+
+.input-box i{
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: var(--pika-orange);
+}
+
+/* BUTTON */
+form button{
+    width: 100%;
+    height: 45px;
+    background: linear-gradient(135deg, var(--pika-orange), var(--pika-yellow));
+    color: var(--black);
+    border: none;
+    border-radius: 40px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+form button:hover{
+    box-shadow: 0 0 12px var(--pika-shadow);
+}
+
+/* TEXT LINKS */
+.linkTxt{
+    font-size: 14px;
+    text-align: center;
+    margin: 20px 0 10px;
+}
+
+.linkTxt a{
+    color: var(--black);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+/* ANIMATION: LOGIN → REGISTER */
+.wrapper.active .form-box.login{
+    pointer-events: none;
+    transform: translateX(-120%);
+    opacity: 0;
+    filter: blur(10px);
+    transition: 0.8s;
+}
+
+.wrapper .form-box.register{
+    right: 0;
+    padding: 0 40px 0 60px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(120%);
+    transition: 0.8s;
+}
+
+.wrapper.active .form-box.register{
+    pointer-events: auto;
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* INFO TEXT (RIGHT SIDE PANEL) */
+.info-text{
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.info-text.login{
+    right: 0;
+    text-align: right;
+    padding: 0 40px 60px 150px;
+    color: var(--white);
+}
+
+.info-text.register{
+    left: 0;
+    padding: 0 150px 60px 40px;
+    text-align: left;
+    color: var(--black);
+    opacity: 0;
+    transform: translateX(-120%);
+    transition: 0.8s;
+}
+
+.wrapper.active .info-text.login{
+    opacity: 0;
+    transform: translateX(120px);
+}
+
+.wrapper.active .info-text.register{
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* PIKACHU ELECTRIC BACKGROUNDS */
+.rotate-bg{
+    position: absolute;
+    top: -4px;
+    right: 0;
+    width: 850px;
+    height: 600px;
+    background: var(--pika-yellow);
+    transform: rotate(10deg) skewY(40deg);
+    transform-origin: bottom right;
+    transition: 1.5s ease;
+    box-shadow: 0 0 30px var(--pika-shadow);
+}
+
+.wrapper.active .rotate-bg{
+    transform: rotate(0) skewY(0);
+}
+
+.rotate-bg2{
+    position: absolute;
+    top: 100%;
+    left: 250px;
+    width: 850px;
+    height: 700px;
+    background: var(--pika-orange);
+    transform: rotate(0) skewY(0);
+    transform-origin: bottom left;
+    transition: 1.5s ease;
+}
+
+.wrapper.active .rotate-bg2{
+    transform: rotate(-11deg) skewY(-40deg);
+}
+
+</style>
+
+</head>
+<body>
+
+<div class="wrapper">
+
+    <span class="rotate-bg"></span>
+    <span class="rotate-bg2"></span>
+
+    <!-- LOGIN FORM -->
+    <div class="form-box login">
+        <h2>Login</h2>
+
+        <form action="/login" method="POST">
+            <div class="input-box">
+                <input type="email" name="email" required>
+                <label>Email</label>
+                <i class='bx bxs-user'></i>
+            </div>
+
+            <div class="input-box">
+                <input type="password" name="password" required>
+                <label>Password</label>
+                <i class='bx bxs-lock-alt'></i>
+            </div>
+
+            <button type="submit">Login</button>
+
+            <div class="linkTxt">
+                <p>Don't have an account? <a href="#" class="register-link">Sign Up</a></p>
+            </div>
+        </form>
+    </div>
+
+    <div class="info-text login">
+        <h2>Welcome Back!</h2>
+        <p>Login to continue your Pokémon journey ⚡</p>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div class="form-box register">
+        <h2>Sign Up</h2>
+
+        <form action="/register" method="POST">
+            <div class="input-box">
+                <input type="text" name="username" placeholder="Username" required>
+                <i class='bx bxs-user'></i>
+            </div>
+
+            <div class="input-box">
+                <input type="email" name="email" placeholder="Email" required>
+                <i class='bx bxs-envelope'></i>
+            </div>
+
+            <div class="input-box">
+                <input type="password" name="password" placeholder="Password" required>
+                <i class='bx bxs-lock-alt'></i>
+            </div>
+
+        <div class="input-box">
+            <select name="role" style="width:100%;height:100%;border:none;border-bottom:3px solid var(--pika-orange);background:var(--white);font-size:16px;color:var(--black);outline:none;">
+                <option value="" selected disabled>Select Role</option>
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+            </select>
+            <i class='bx bxs-star'></i>
+        </div>
+
+            <button type="submit">Sign Up</button>
+
+            <div class="linkTxt">
+                <p>Already have an account? <a href="#" class="login-link">Login</a></p>
+            </div>
+        </form>
+    </div>
+
+    <div class="info-text register">
+        <h2>Welcome!</h2>
+        <p>Create your Trainer Account and start trading ⚡</p>
+    </div>
+
+</div>
+
+<script>
+/* ------------------- JS START ------------------- */
+
+const wrapper = document.querySelector('.wrapper');
+const registerLink = document.querySelector('.register-link');
+const loginLink = document.querySelector('.login-link');
+
+registerLink.onclick = () => {
+    wrapper.classList.add('active');
+}
+
+loginLink.onclick = () => {
+    wrapper.classList.remove('active');
+}
+
+/* ------------------- JS END ------------------- */
+</script>
+
+</body>
+</html>
