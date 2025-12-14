@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Google Font: Montserrat (Gotham-like) -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="/theme.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <title>Supermarket App - Register</title>
+  <style>
+    /* Register hero styling aligned to login hero */
+    .custom-navbar {
+      background-color: transparent !important;
+      padding-top: 1.05rem;
+      padding-bottom: 1.05rem;
+      min-height: 80px;
+      z-index: 1030;
+      box-shadow: none;
+    }
+    .brand-logo {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      display: inline-flex;
+      flex-direction: column;
+      text-align: center;
+      text-decoration: none;
+      line-height: 1.05;
+      padding-left: 0.1rem;
+    }
+    .brand-main {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: 0.33em;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+    .brand-sub {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.75);
+      margin-top: 0.15rem;
+    }
+    .auth-hero {
+      position: relative;
+      margin: 3.5rem auto;
+      max-width: 1020px;
+      background: linear-gradient(135deg, #070c14 0%, #050a12 45%, #02050d 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(88, 166, 255, 0.35);
+      box-shadow:
+        0 0 18px rgba(88,166,255,0.45),
+        0 25px 80px rgba(0,0,0,0.75);
+      overflow: hidden;
+      isolation: isolate;
+      color: #eaf2ff;
+    }
+    .auth-hero::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 18px;
+      background: radial-gradient(55% 70% at 10% 90%, rgba(46,116,255,0.6), rgba(4,8,18,0));
+      filter: blur(12px);
+      z-index: -1;
+    }
+    .auth-hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg, rgba(0,0,0,0) 0%, rgba(17,170,255,0.14) 52%, rgba(17,170,255,0.34) 65%, rgba(0,0,0,0) 100%);
+      mix-blend-mode: screen;
+      opacity: 0.8;
+      pointer-events: none;
+    }
+    .pikachu-pop {
+      position: absolute;
+      right: 1.25rem;
+      bottom: -20%;
+      width: 130px;
+      animation: peekUp 1.1s ease-out 0.25s forwards;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .pikachu-pop img {
+      width: 100%;
+      display: block;
+    }
+    @keyframes peekUp {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-55%); }
+    }
+    .auth-hero .pane {
+      padding: 2.25rem 2.75rem;
+      position: relative;
+      z-index: 1;
+    }
+    .auth-hero .divider-stripe {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(5,10,18,0) 0%, rgba(12,177,255,0.26) 50%, rgba(5,10,18,0.08) 100%);
+      mask-image: linear-gradient(90deg, transparent 45%, black 60%, transparent 82%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .auth-heading { font-weight: 700; font-size: 1.8rem; letter-spacing: -0.01em; }
+    .auth-subtitle { color: rgba(234,242,255,0.78); margin-bottom: 1.1rem; }
+    .form-label { color: rgba(234,242,255,0.85); font-weight: 600; letter-spacing: 0.01em; }
+    .form-control {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.16);
+      color: #eaf2ff;
+      border-radius: 999px;
+      padding-left: 1rem;
+      height: 44px;
+    }
+    .form-control:focus {
+      border-color: rgba(88,166,255,0.7);
+      box-shadow: 0 0 0 0.15rem rgba(88,166,255,0.2);
+    }
+    .btn-glow {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(90deg, #0fb0ff 0%, #4ad4ff 100%);
+      color: #04101f;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      box-shadow: 0 10px 28px rgba(15,176,255,0.35);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn-glow:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 32px rgba(15,176,255,0.42);
+    }
+    .link-accent { color: #4ad4ff; font-weight: 700; text-decoration: none; }
+    .link-accent:hover { color: #73e0ff; }
+    .welcome-pane {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 0.6rem;
+    }
+    .welcome-pane h3 {
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #86d8ff;
+      text-shadow: 0 0 12px rgba(15,176,255,0.65);
+    }
+    .welcome-pane p { color: rgba(234,242,255,0.78); margin: 0; }
+    @media (max-width: 768px) {
+      .auth-hero { margin: 2rem auto; }
+      .auth-hero .pane { padding: 1.8rem 1.6rem; }
+    }
+  </style>
+</head>
+<body class="theme-gradient d-flex flex-column min-vh-100">
+  <a class="visually-hidden-focusable" href="#main-content">Skip to main content</a>
+  <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
+    <div class="container-fluid" role="navigation" aria-label="Main navigation">
+      <a class="navbar-brand brand-logo" href="/">
+        <span class="brand-main">PokeVault</span>
+        <span class="brand-sub">SINGAPORE</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar" aria-controls="collapsibleNavbar" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+    </div>
+  </nav>
+
+  <main id="main-content" class="container flex-grow-1" role="main">
+    <div class="auth-hero">
+      <div class="divider-stripe"></div>
+      <div class="row g-0">
+        <div class="col-md-7 pane">
+          <h2 class="auth-heading mb-1">Create account</h2>
+          <p class="auth-subtitle">Join the vault — shop, sell, and trade securely.</p>
+
+          <% if (messages && messages.length > 0) { %>
+            <div class="alert alert-danger">
+              <% messages.forEach(function(message) { %>
+                <div><%= message %></div>
+              <% }); %>
+            </div>
+          <% } %>
+
+          <form action="/register" method="POST" class="mt-3" id="registerForm">
+            <input type="hidden" name="pdpaAccepted" id="pdpaAccepted" value="">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" name="username" class="form-control" required value="<%= formData && formData.username ? formData.username : '' %>">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" id="email" name="email" class="form-control" required value="<%= formData && formData.email ? formData.email : '' %>">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="password" class="form-label">Password</label>
+              <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+            <div class="row">
+              <div class="col-md-8 mb-3">
+                <label for="address" class="form-label">Address</label>
+                <input type="text" id="address" name="address" class="form-control" required value="<%= formData && formData.address ? formData.address : '' %>">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="contact" class="form-label">Contact</label>
+                <input type="text" id="contact" name="contact" class="form-control" required value="<%= formData && formData.contact ? formData.contact : '' %>">
+              </div>
+            </div>
+            <button type="button" class="btn btn-glow mt-2" data-bs-toggle="modal" data-bs-target="#pdpaModal">Register</button>
+            <div class="d-flex justify-content-center gap-2 mt-3">
+              <span style="color: rgba(234,242,255,0.78);">Already have an account?</span>
+              <a class="link-accent" href="/login">Login</a>
+            </div>
+          </form>
+        </div>
+        <div class="col-md-5 pane welcome-pane">
+          <h3>WELCOME!</h3>
+          <p>We keep your collection and trades safe.</p>
+        </div>
+      </div>
+      <div class="pikachu-pop">
+        <img src="/images/pikachu3.png" alt="Pikachu peeking from the corner">
+      </div>
+    </div>
+  </main>
+  <footer class="site-footer mt-auto">
+    <div class="container text-center">
+      <p class="mb-1">Connecting Pokemon card collectors worldwide — shop, sell, and trade in a safe and growing community.</p>
+      <small class="small">© <%= new Date().getFullYear() %> PokeVault. All rights reserved.</small>
+    </div>
+  </footer>
+
+  <div class="modal fade" id="pdpaModal" tabindex="-1" aria-labelledby="pdpaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content" style="background: #050a12; color: #eaf2ff; border: 1px solid rgba(88,166,255,0.35);">
+        <div class="modal-header border-0">
+          <div>
+            <h5 class="modal-title fw-bold" id="pdpaModalLabel">PokeVault Terms and Conditions</h5>
+            <p class="mb-0" style="color: rgba(234,242,255,0.7); font-size: 0.95rem;">We collect and use your personal data to create and secure your PokeVault account.</p>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body pt-0">
+          <div class="d-flex flex-column gap-3">
+            <div>
+              <p class="mb-2 fw-semibold text-uppercase small" style="letter-spacing: 0.08em; color: #86d8ff;">What we collect</p>
+              <ul class="mb-0 ps-3">
+                <li>Account details (name, email, username) for authentication and communication.</li>
+                <li>Contact and address information to support transactions and delivery updates.</li>
+                <li>Usage data that helps us keep the platform secure and improve features.</li>
+              </ul>
+            </div>
+            <div>
+              <p class="mb-2 fw-semibold text-uppercase small" style="letter-spacing: 0.08em; color: #86d8ff;">How we use it</p>
+              <ul class="mb-0 ps-3">
+                <li>To create and manage your account, and verify your identity.</li>
+                <li>To send crucial service notifications and transaction updates.</li>
+                <li>To safeguard the marketplace from fraud, misuse, or security risks.</li>
+              </ul>
+            </div>
+            <div>
+              <p class="mb-2 fw-semibold text-uppercase small" style="letter-spacing: 0.08em; color: #86d8ff;">Your choices</p>
+              <ul class="mb-0 ps-3">
+                <li>You may request access, correction, or deletion of your data where allowed by law.</li>
+                <li>You can withdraw consent at any time; this may affect your ability to use certain services.</li>
+                <li>We do not sell your personal data and share it only with trusted processors supporting the platform.</li>
+              </ul>
+            </div>
+            <div class="alert alert-info border-0" style="background: rgba(74,212,255,0.08); color: #eaf2ff;">
+              By continuing, you consent to PokeVault collecting, using, and disclosing your data in line with this PDPA notice and our privacy practices.
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="yes" id="pdpaConfirm">
+              <label class="form-check-label" for="pdpaConfirm">
+                I have read and agree to terms and conditions.
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-0 d-flex justify-content-between">
+          <small class="text-muted">Need help? Contact us at support@pokevault.local</small>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="pdpaAccept" disabled>Accept &amp; Register</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const form = document.getElementById('registerForm');
+      const pdpaConfirm = document.getElementById('pdpaConfirm');
+      const pdpaAccept = document.getElementById('pdpaAccept');
+      const pdpaAcceptedField = document.getElementById('pdpaAccepted');
+
+      if (!form || !pdpaConfirm || !pdpaAccept || !pdpaAcceptedField) return;
+
+      pdpaConfirm.addEventListener('change', () => {
+        pdpaAccept.disabled = !pdpaConfirm.checked;
+      });
+
+      pdpaAccept.addEventListener('click', () => {
+        if (!pdpaConfirm.checked) return;
+        pdpaAcceptedField.value = 'yes';
+        pdpaAccept.disabled = true;
+        form.submit();
+      });
+    })();
+  </script>
+
+</body>
+</html>

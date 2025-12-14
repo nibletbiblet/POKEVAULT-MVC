@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="/theme.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <title>Admin - Users</title>
+  <style>
+    body { background:#111213; color:#fff; font-family:'Montserrat',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;  background-size:cover; background-repeat:no-repeat; background-attachment:fixed; }
+    body::before { content:''; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:-1; }
+    .custom-navbar { background-color:transparent !important; padding-top:1.05rem; padding-bottom:1.05rem; min-height:80px; z-index:1030; box-shadow:none; }
+    .custom-navbar .navbar-brand { font-weight:700; letter-spacing:-0.01em; }
+    .card-frosted { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); border-radius:0.8rem; -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); box-shadow:0 12px 34px rgba(0,0,0,0.45); padding:1.2rem; }
+    .brand-logo { font-family:'Montserrat',system-ui,sans-serif; display:inline-flex; flex-direction:column; text-align:center; text-decoration:none; line-height:1.05; padding-left:0.1rem; }
+    .brand-main { font-size:1.45rem; font-weight:700; letter-spacing:0.33em; text-transform:uppercase; color:#ffffff; }
+    .brand-sub { font-size:0.68rem; font-weight:500; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.75); margin-top:0.15rem; }
+    footer.site-footer { background:#0b0c0d; color:#fff; padding:2.5rem 0; border-top:1px solid rgba(255,255,255,0.03); }
+    a, .nav-link { color: rgba(255,255,255,0.95); }
+    .user-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 0.8rem;
+      padding: 1rem;
+      box-shadow: 0 12px 34px rgba(0,0,0,0.45);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+      height: 100%;
+    }
+    .user-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255,255,255,0.2);
+      box-shadow: 0 16px 38px rgba(0,0,0,0.5);
+    }
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.28rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      font-weight: 700;
+      font-size: 0.8rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+    }
+    .role-badge.admin { background: rgba(220,53,69,0.18); border-color: rgba(220,53,69,0.5); }
+    .user-meta { color: rgba(255,255,255,0.7); font-size: 0.9rem; }
+    .user-actions .btn { flex: 1 1 auto; }
+
+    .search-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 999px;
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      padding: 0.65rem 1rem;
+      color: #fff;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+    }
+    .search-box::placeholder { color: rgba(255,255,255,0.6); }
+    .filter-select {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      padding: 0.65rem 1rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      appearance: none;
+      background-image:
+        linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+        url("data:image/svg+xml,%3Csvg width='18' height='12' viewBox='0 0 18 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4l7 7 7-7' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat, no-repeat;
+      background-position: 0 0, calc(100% - 0.9rem) center;
+      background-size: auto, 18px 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    }
+    .filter-select:focus {
+      border-color: rgba(255,255,255,0.28);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.14);
+    }
+    .filter-select option {
+      background: #0f1011;
+      color: #fff;
+    }
+
+    /* Toast notification styles */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 2000;
+    }
+    .toast-notification {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      color: #000000;
+      padding: 1rem 1.5rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      margin-bottom: 0.75rem;
+      animation: slideIn 300ms ease-out, slideOut 300ms ease-out 2700ms forwards;
+      border: 1px solid rgba(255,255,255,0.1);
+      font-weight: 500;
+    }
+    @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(400px); opacity: 0; } }
+  </style>
+</head>
+<body class="theme-gradient d-flex flex-column min-vh-100">
+  <div class="toast-container" id="toastContainer"></div>
+  <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
+    <div class="container-fluid">
+      <a class="navbar-brand brand-logo" href="/">
+        <span class="brand-main">PokeVault</span>
+        <span class="brand-sub">SINGAPORE</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="collapsibleNavbar">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item d-flex align-items-center me-3"><span class="text-light small">Signed in as <strong><%= user.username %></strong></span></li>
+          <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/">Home</a></li>
+          <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/inventory">Inventory</a></li>
+          <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/logout">Logout</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container flex-grow-1 py-4">
+    <div class="card-frosted">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold mb-0">All Users</h4>
+        <a class="btn btn-outline-light btn-sm" href="/admin/users/add">Add User</a>
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col-12 col-md-6 col-lg-4">
+          <input id="userSearch" type="search" class="form-control form-control-sm search-box" placeholder="Search name or email..." aria-label="Search users">
+        </div>
+        <div class="col-12 col-md-4 col-lg-3">
+          <select id="roleFilter" class="form-select form-select-sm filter-select" aria-label="Filter by role">
+            <option value="">All roles</option>
+            <option value="admin">Admin</option>
+            <option value="user">User</option>
+          </select>
+        </div>
+      </div>
+      <div class="row g-3">
+        <% users.forEach(u => { %>
+          <div class="col-12 col-md-6 col-lg-4 user-card-wrapper" data-search="<%= (u.username + ' ' + u.email).toLowerCase() %>" data-role="<%= u.role %>">
+            <div class="user-card d-flex flex-column">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <div class="fw-bold"><%= u.id %>. <%= u.username %></div>
+                  <div class="user-meta"><%= u.email %></div>
+                </div>
+                <span class="role-badge <%= u.role === 'admin' ? 'admin' : '' %>"><%= u.role %></span>
+              </div>
+              <div class="mb-2 user-meta">Contact: <%= u.contact || '-' %></div>
+              <div class="mb-3 user-meta">Address: <%= u.address || '-' %></div>
+              <div class="user-actions d-flex gap-2 mt-auto">
+                <% const isSelfAdmin = user && user.id === u.id && u.role === 'admin'; %>
+                <% if (u.role !== 'admin') { %>
+                  <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= u.id %>/orders">View Orders</a>
+                  <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= u.id %>/edit">Edit</a>
+                  <form action="/admin/users/<%= u.id %>/delete" method="POST" class="d-inline-flex flex-grow-1 delete-user-form" data-name="<%= u.username %>">
+                    <button type="submit" class="btn btn-danger btn-sm w-100" title="Delete user">Delete</button>
+                  </form>
+                <% } else if (isSelfAdmin) { %>
+                  <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= u.id %>/edit">Edit Profile</a>
+                  <span class="text-white-50 small">Editing own admin</span>
+                <% } else { %>
+                  <span class="text-white-50 small">Admin account</span>
+                <% } %>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Client-side filter for users by search term and role
+    (function() {
+      const searchInput = document.getElementById('userSearch');
+      const roleSelect = document.getElementById('roleFilter');
+      if (!searchInput || !roleSelect) return;
+
+      const cards = Array.from(document.querySelectorAll('.user-card-wrapper'));
+
+      function filterCards() {
+        const term = searchInput.value.trim().toLowerCase();
+        const role = roleSelect.value.trim();
+        cards.forEach(card => {
+          const termSpace = card.dataset.search || '';
+          const cardRole = card.dataset.role || '';
+          const matchesTerm = termSpace.includes(term);
+          const matchesRole = !role || cardRole === role;
+          card.style.display = (matchesTerm && matchesRole) ? '' : 'none';
+        });
+      }
+
+      searchInput.addEventListener('input', filterCards);
+      roleSelect.addEventListener('change', filterCards);
+    })();
+
+    // Toast helper
+    function showToast(message) {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'toast-notification';
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3200);
+    }
+
+    // AJAX delete for users (non-admin)
+    (function() {
+      const forms = Array.from(document.querySelectorAll('.delete-user-form'));
+      if (!forms.length) return;
+      forms.forEach(form => {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const username = form.dataset.name || 'this user';
+          if (!confirm(`Delete user ${username}?`)) return;
+          try {
+            const res = await fetch(form.action, { method: 'POST' });
+            if (!res.ok) throw new Error('Delete failed');
+            showToast(`${username} deleted`);
+            setTimeout(() => window.location.reload(), 600);
+          } catch (err) {
+            console.error(err);
+            showToast('Could not delete user. Please try again.');
+          }
+        });
+      });
+    })();
+  </script>
+  <footer class="site-footer mt-auto">
+  <div class="container text-center">
+    <p class="mb-1">Connecting Pokémon card collectors worldwide — shop, sell, and trade in a safe and growing community.</p>
+    <small class="small">© <%= new Date().getFullYear() %> PokéVault. All rights reserved.</small>
+  </div>
+</footer>
+</body>
+</html>
+

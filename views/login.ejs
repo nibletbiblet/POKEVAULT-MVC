@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Google Font: Montserrat (Gotham-like) -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="/theme.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <title>Supermarket App - Login</title>
+  <style>
+    /* Login hero styling inspired by reference */
+    .custom-navbar {
+      background-color: transparent !important;
+      padding-top: 1.05rem;
+      padding-bottom: 1.05rem;
+      min-height: 80px;
+      z-index: 1030;
+      box-shadow: none;
+    }
+    .brand-logo {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      display: inline-flex;
+      flex-direction: column;
+      text-align: center;
+      text-decoration: none;
+      line-height: 1.05;
+      padding-left: 0.1rem;
+    }
+    .brand-main {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: 0.33em;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+    .brand-sub {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.75);
+      margin-top: 0.15rem;
+    }
+    .login-hero {
+      position: relative;
+      margin: 3.5rem auto;
+      max-width: 980px;
+      background: linear-gradient(135deg, #070c14 0%, #050a12 45%, #02050d 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(88, 166, 255, 0.35);
+      box-shadow:
+        0 0 18px rgba(88,166,255,0.45),
+        0 25px 80px rgba(0,0,0,0.75);
+      overflow: hidden;
+      isolation: isolate;
+      color: #eaf2ff;
+    }
+    .login-hero::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 18px;
+      background: radial-gradient(55% 70% at 10% 90%, rgba(46,116,255,0.6), rgba(4,8,18,0));
+      filter: blur(12px);
+      z-index: -1;
+    }
+    .login-hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg, rgba(0,0,0,0) 0%, rgba(17,170,255,0.14) 52%, rgba(17,170,255,0.34) 65%, rgba(0,0,0,0) 100%);
+      mix-blend-mode: screen;
+      opacity: 0.8;
+      pointer-events: none;
+    }
+    .pikachu-pop {
+      position: absolute;
+      right: 1.25rem;
+      bottom: -15%;
+      width: 130px;
+      animation: peekUp 1.1s ease-out 0.25s forwards;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .pikachu-pop img {
+      width: 100%;
+      display: block;
+    }
+    @keyframes peekUp {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-55%); }
+    }
+    .login-hero .pane {
+      padding: 2.25rem 2.75rem;
+      position: relative;
+      z-index: 1;
+    }
+    .login-hero .divider-stripe {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(5,10,18,0) 0%, rgba(12,177,255,0.26) 50%, rgba(5,10,18,0.08) 100%);
+      mask-image: linear-gradient(90deg, transparent 45%, black 60%, transparent 82%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .login-heading { font-weight: 700; font-size: 1.8rem; letter-spacing: -0.01em; }
+    .login-subtitle { color: rgba(234,242,255,0.78); margin-bottom: 1.1rem; }
+    .form-label { color: rgba(234,242,255,0.85); font-weight: 600; letter-spacing: 0.01em; }
+    .form-control {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.16);
+      color: #eaf2ff;
+      border-radius: 999px;
+      padding-left: 1rem;
+      height: 44px;
+    }
+    .form-control:focus {
+      border-color: rgba(88,166,255,0.7);
+      box-shadow: 0 0 0 0.15rem rgba(88,166,255,0.2);
+    }
+    .btn-glow {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(90deg, #0fb0ff 0%, #4ad4ff 100%);
+      color: #04101f;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      box-shadow: 0 10px 28px rgba(15,176,255,0.35);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn-glow:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 32px rgba(15,176,255,0.42);
+    }
+    .link-accent { color: #4ad4ff; font-weight: 700; text-decoration: none; }
+    .link-accent:hover { color: #73e0ff; }
+    .welcome-pane {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 0.6rem;
+    }
+    .welcome-pane h3 {
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #86d8ff;
+      text-shadow: 0 0 12px rgba(15,176,255,0.65);
+    }
+    .welcome-pane p { color: rgba(234,242,255,0.78); margin: 0; }
+    @media (max-width: 768px) {
+      .login-hero { margin: 2rem auto; }
+      .login-hero .pane { padding: 1.8rem 1.6rem; }
+    }
+  </style>
+</head>
+<body class="theme-gradient d-flex flex-column min-vh-100">
+  <a class="visually-hidden-focusable" href="#main-content">Skip to main content</a>
+  <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
+    <div class="container-fluid" role="navigation" aria-label="Main navigation">
+
+      <a class="navbar-brand brand-logo" href="/">
+        <span class="brand-main">PokeVault</span>
+        <span class="brand-sub">SINGAPORE</span>
+      </a>
+
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+    </div>
+  </nav>
+
+  <main id="main-content" class="container flex-grow-1" role="main">
+    <div class="login-hero">
+      <div class="divider-stripe"></div>
+      <div class="row g-0">
+        <div class="col-md-7 pane">
+          <h2 class="login-heading mb-1">Login</h2>
+          <p class="login-subtitle">Welcome back — sign in to continue.</p>
+
+          <% if (errors && errors.length > 0) { %>
+            <div class="alert alert-danger">
+              <% errors.forEach(function(error) { %>
+                <div><%= error %></div>
+              <% }); %>
+            </div>
+          <% } %>
+
+          <% if (messages && messages.length > 0) { %>
+            <div class="alert alert-success">
+              <% messages.forEach(function(message) { %>
+                <div><%= message %></div>
+              <% }); %>
+            </div>
+          <% } %>
+
+          <form action="/login" method="POST" class="mt-3">
+            <div class="mb-3">
+              <label for="email" class="form-label">Email</label>
+              <input type="email" id="email" name="email" class="form-control" required autocomplete="username">
+            </div>
+            <div class="mb-4">
+              <label for="password" class="form-label">Password</label>
+              <input type="password" id="password" name="password" class="form-control" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-glow">Login</button>
+            <div class="d-flex justify-content-center gap-2 mt-3">
+              <span style="color: rgba(234,242,255,0.78);">Don't have an account?</span>
+              <a class="link-accent" href="/register">Sign up</a>
+            </div>
+          </form>
+        </div>
+        <div class="col-md-5 pane welcome-pane">
+          <h3>WELCOME BACK!</h3>
+          <p>Securely shop, sell, and trade your favorite cards.</p>
+        </div>
+      </div>
+      <div class="pikachu-pop">
+        <img src="/images/pikachu2.png" alt="Pikachu peeking from the corner">
+      </div>
+    </div>
+  </main>
+  <footer class="site-footer mt-auto">
+    <div class="container text-center">
+      <p class="mb-1">Connecting Pokemon card collectors worldwide — shop, sell, and trade in a safe and growing community.</p>
+      <small class="small">© <%= new Date().getFullYear() %> PokeVault. All rights reserved.</small>
+    </div>
+  </footer>
+</body>
+</html>

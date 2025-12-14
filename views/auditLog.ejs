@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="/theme.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <title>Admin - Audit Log</title>
+  <style>
+    body { background:#0d0f12; color:#fff; font-family:'Montserrat',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; background-image:radial-gradient(120% 140% at 15% 10%, rgba(125,243,212,0.08), transparent), radial-gradient(120% 160% at 80% 0%, rgba(109,210,255,0.08), transparent); background-size:cover; background-repeat:no-repeat; background-attachment:fixed; }
+    body::before { content:''; position:fixed; inset:0; background:linear-gradient(180deg, rgba(7,7,8,0.82) 0%, rgba(10,12,15,0.88) 40%, rgba(10,12,15,0.92) 100%); z-index:-1; }
+    .custom-navbar { background-color:transparent !important; padding-top:1.05rem; padding-bottom:1.05rem; min-height:80px; z-index:1030; box-shadow:none; }
+    .custom-navbar .navbar-brand { font-weight:700; letter-spacing:-0.01em; }
+    .card-frosted { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:1rem; -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); box-shadow:0 18px 48px rgba(0,0,0,0.55); padding:1.4rem; }
+    .stat-pill { background:linear-gradient(135deg, rgba(125,243,212,0.18), rgba(109,210,255,0.18)); border:1px solid rgba(255,255,255,0.12); color:#e9f9ff; padding:0.55rem 0.9rem; border-radius:0.8rem; font-weight:700; letter-spacing:0.01em; }
+    .brand-logo { font-family:'Montserrat',system-ui,sans-serif; display:inline-flex; flex-direction:column; text-align:center; text-decoration:none; line-height:1.05; padding-left:0.1rem; }
+    .brand-main { font-size:1.45rem; font-weight:700; letter-spacing:0.33em; text-transform:uppercase; color:#ffffff; }
+    .brand-sub { font-size:0.68rem; font-weight:500; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.75); margin-top:0.15rem; }
+    footer.site-footer { background:#0b0c0d; color:#fff; padding:2.5rem 0; border-top:1px solid rgba(255,255,255,0.03); }
+    a, .nav-link { color: rgba(255,255,255,0.95); }
+    .table thead th { border-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.82rem; background: rgba(255,255,255,0.04); }
+    .table tbody td { border-color: rgba(255,255,255,0.05); color: rgba(255,255,255,0.92); vertical-align: middle; }
+    .table-dark tbody tr { background: rgba(8, 24, 48, 0.62) !important; }
+    .table-dark tbody tr:hover { background: rgba(12, 32, 64, 0.75) !important; }
+    .badge-soft { background: linear-gradient(135deg, rgba(125,243,212,0.15), rgba(109,210,255,0.12)); border: 1px solid rgba(255,255,255,0.14); color: #eaffff; border-radius: 999px; padding: 0.32rem 0.7rem; font-weight: 700; letter-spacing: 0.02em; }
+    .search-box { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); padding: 0.65rem 1rem; color: #fff; box-shadow: 0 12px 30px rgba(0,0,0,0.38); }
+    .search-box::placeholder { color: rgba(255,255,255,0.6); }
+    .item-pill { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 0.28rem 0.65rem; margin: 0.12rem; display: inline-flex; gap: 0.35rem; align-items: center; }
+    .item-pill small { color: rgba(255,255,255,0.75); }
+    .table-wrapper { border:1px solid rgba(255,255,255,0.06); border-radius: 0.75rem; overflow:hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02); }
+    .pagination-soft .btn { border-radius: 999px; }
+  </style>
+</head>
+<body class="theme-gradient d-flex flex-column min-vh-100">
+  <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
+    <div class="container-fluid">
+      <a class="navbar-brand brand-logo" href="/">
+        <span class="brand-main">PokeVault</span>
+        <span class="brand-sub">SINGAPORE</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="collapsibleNavbar">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item d-flex align-items-center me-3"><span class="text-light small">Signed in as <strong><%= user.username %></strong></span></li>
+          <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/">Home</a></li>
+          <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/inventory">Inventory</a></li>
+          <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/logout">Logout</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container flex-grow-1 py-4">
+    <div class="card-frosted">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+          <h4 class="fw-bold mb-1">Audit Log</h4>
+          <small class="text-white-50">Every transaction across every user, newest first.</small>
+        </div>
+        <div class="d-flex gap-2">
+          <a class="btn btn-outline-light btn-sm" href="/admin/users">Users</a>
+          <a class="btn btn-outline-light btn-sm" href="/inventory">Inventory</a>
+        </div>
+      </div>
+
+      <% if (orders && orders.length) { 
+        const start = ((page || 1) - 1) * 20 + 1;
+        const end = start + orders.length - 1;
+      %>
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <div class="stat-pill">Showing <%= start %>-<%= end %> of <%= total %> orders</div>
+        <div class="stat-pill">Page <%= page %> / <%= totalPages %></div>
+      </div>
+      <% } %>
+
+      <div class="row g-2 mb-3">
+        <div class="col-12 col-md-6 col-lg-4">
+          <input id="auditSearch" type="search" class="form-control form-control-sm search-box" placeholder="Search order #, user, email, or item..." aria-label="Search audit log" value="<%= q || '' %>">
+        </div>
+      </div>
+
+      <% if (!orders || !orders.length) { %>
+        <p class="text-white-50 mb-0">No transactions recorded yet.</p>
+      <% } else { %>
+        <div class="table-wrapper">
+          <table class="table table-dark table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th scope="col">Order</th>
+                <th scope="col">User</th>
+                <th scope="col">Items</th>
+                <th scope="col">Total</th>
+                <th scope="col">Placed</th>
+                <th scope="col">Address</th>
+              </tr>
+            </thead>
+            <tbody id="auditTableBody">
+              <% orders.forEach(o => { const itemsSummary = (o.items || []).map(it => `${it.productName} x${it.quantity}`).join(' '); %>
+                <tr class="audit-row" data-search="<%= (`${o.id} ${o.username || ''} ${o.email || ''} ${itemsSummary}`).toLowerCase() %>">
+                  <td class="fw-semibold">#<%= o.id %></td>
+                  <td>
+                    <div><%= o.username %></div>
+                    <div class="text-white-50 small"><%= o.email %></div>
+                  </td>
+                  <td style="min-width: 220px;">
+                    <% if (!o.items || !o.items.length) { %>
+                      <span class="text-white-50 small">No items recorded</span>
+                    <% } else { %>
+                      <div class="d-flex flex-wrap">
+                        <% o.items.forEach(it => { %>
+                          <span class="item-pill">
+                            <strong><%= it.productName %></strong>
+                            <small>x<%= it.quantity %></small>
+                            <small>$<%= Number(it.price).toFixed(2) %></small>
+                          </span>
+                        <% }) %>
+                      </div>
+                    <% } %>
+                  </td>
+                  <td><span class="badge-soft">$<%= Number(o.total).toFixed(2) %></span></td>
+                  <td><%= new Date(o.createdAt).toLocaleString() %></td>
+                  <td class="text-white-50"><%= o.address || '-' %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-3">
+          <div class="text-white-50 small">Page <%= page %> of <%= totalPages %></div>
+          <div class="btn-group pagination-soft">
+            <a class="btn btn-outline-light btn-sm <%= page <= 1 ? 'disabled' : '' %>" href="/admin/audit-log?page=<%= page - 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %>" aria-disabled="<%= page <= 1 %>">Prev</a>
+            <a class="btn btn-outline-light btn-sm <%= page >= totalPages ? 'disabled' : '' %>" href="/admin/audit-log?page=<%= page + 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %>" aria-disabled="<%= page >= totalPages %>">Next</a>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </main>
+  <script>
+    // Submit search on input change to perform server-side filtering across all pages
+    (function() {
+      const input = document.getElementById('auditSearch');
+      if (!input) return;
+      const submitSearch = () => {
+        const query = input.value.trim();
+        const params = new URLSearchParams();
+        if (query) params.set('q', query);
+        window.location.href = '/admin/audit-log' + (params.toString() ? `?${params.toString()}` : '');
+      };
+      input.addEventListener('change', submitSearch);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitSearch();
+        }
+      });
+    })();
+  </script>
+  <footer class="site-footer mt-auto">
+  <div class="container text-center">
+    <p class="mb-1">Connecting Pokémon card collectors worldwide — shop, sell, and trade in a safe and growing community.</p>
+    <small class="small">© <%= new Date().getFullYear() %> PokéVault. All rights reserved.</small>
+  </div>
+</footer>
+</body>
+</html>
