@@ -104,6 +104,38 @@ background-size: cover;
       transition: 160ms ease-in-out;
     }
     .btn-cta:hover{ transform: translateY(-2px); background:#f1f1f1; }
+
+    /* File pill styling (match update page) */
+    .file-pill {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 999px;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02), 0 10px 24px rgba(0,0,0,0.3);
+      max-width: 420px;
+    }
+    .file-pill-label {
+      background: linear-gradient(90deg, #0fb0ff 0%, #4ad4ff 100%);
+      color: #04101f;
+      font-weight: 700;
+      border: none;
+      padding: 0.5rem 0.85rem;
+      border-radius: 999px 0 0 999px;
+      font-size: 0.95rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .file-pill-input {
+      background: transparent;
+      border: none;
+      color: #eaf2ff;
+      font-weight: 600;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.95rem;
+    }
+    .file-pill-input::file-selector-button { display: none; }
+    .file-pill-input:focus { box-shadow: none; }
   </style>
 </head>
 <body class="theme-gradient d-flex flex-column min-vh-100">
@@ -175,7 +207,11 @@ background-size: cover;
 
           <div class="mb-4">
             <label for="image" class="form-label">Product Image</label>
-            <input class="form-control" type="file" id="image" name="image" accept="image/*" required>
+            <div class="input-group file-pill mx-auto">
+              <label class="input-group-text file-pill-label" for="image">Choose file</label>
+              <input class="form-control file-pill-input" type="file" id="image" name="image" accept="image/*" required>
+            </div>
+            <small class="text-white-50">PNG, JPG, or JPEG preferred.</small>
           </div>
 
           <div class="d-grid mt-2">
