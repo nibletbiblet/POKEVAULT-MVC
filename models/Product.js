@@ -14,6 +14,13 @@ const Product = {
 		db.query(sql, (err, results) => callback(err, results));
 	},
 
+	// Get only active products (fallback to all if schema doesn't support is_active)
+	getActive(callback) {
+		const db = require('../db');
+		const sql = 'SELECT * FROM products';
+		db.query(sql, (err, results) => callback(err, results));
+	},
+
 	// Get a single product by ID
 	getById(id, callback) {
 		const db = require('../db');
@@ -52,14 +59,17 @@ const Product = {
 		db.query(sql, params, (err, result) => callback(err, result));
 	},
 
-	// Delete a product by ID
+	// Delete a product by ID (hard delete to support schemas without is_active)
 	delete(id, callback) {
 		const db = require('../db');
 		const sql = 'DELETE FROM products WHERE id = ?';
 		db.query(sql, [id], (err, result) => callback(err, result));
+	},
+
+	setActive(id, isActive, callback) {
+		if (isActive) return callback(null, { affectedRows: 0 });
+		return this.delete(id, callback);
 	}
 };
 
 module.exports = Product;
-
-

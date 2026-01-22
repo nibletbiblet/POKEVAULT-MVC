@@ -1,0 +1,229 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="/theme.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <title>Checkout</title>
+  <style>
+    body {
+background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      background-color: #111213;
+      color: #fff;
+      font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+    body::before { content:''; position:fixed; inset:0; background:rgba(0,0,0,0.45); pointer-events:none; z-index:-1; }
+    .custom-navbar { background-color: transparent !important; padding-top:1.05rem; padding-bottom:1.05rem; min-height:80px; z-index:1030; box-shadow:none; }
+    .custom-navbar .navbar-brand { font-weight:700; letter-spacing:-0.01em; }
+    .card-frosted {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 0.8rem;
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 12px 34px rgba(0,0,0,0.45);
+      padding: 1.25rem;
+      color: #fff;
+    }
+    .brand-logo { font-family:'Montserrat', system-ui, sans-serif; display:inline-flex; flex-direction:column; text-align:center; text-decoration:none; line-height:1.05; padding-left:0.1rem; }
+    .brand-main { font-size:1.45rem; font-weight:700; letter-spacing:0.33em; text-transform:uppercase; color:#ffffff; }
+    .brand-sub { font-size:0.68rem; font-weight:500; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.75); margin-top:0.15rem; }
+    .btn-cta { background:#ffffff; color:#000 !important; font-weight:600; letter-spacing:.02em; border-radius:0.45rem; border:1px solid rgba(255,255,255,0.12); padding:0.65rem 1rem; font-size:1rem; transition:160ms ease-in-out; }
+    .btn-cta:hover { transform: translateY(-2px); background:#f1f1f1; }
+    footer.site-footer { background:#0b0c0d; color:#fff; padding-top:2.5rem; padding-bottom:2.5rem; border-top:1px solid rgba(255,255,255,0.03); }
+    .input-ghost { background: rgba(255,255,255); border:1px solid rgba(255,255,255,0.12); color:#fff; }
+    .input-ghost:focus { background: rgba(255,255,255,0.08); color:#fff; border-color: rgba(255,255,255,0.32); box-shadow: 0 0 0 0.2rem rgba(255,255,255,0.12); }
+    .pill-choice { display:inline-flex; align-items:center; gap:0.35rem; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.05); border-radius:999px; padding:0.3rem 0.75rem; color:#fff; font-weight:600; font-size:0.9rem; }
+    .pill-choice input { accent-color:#fff; }
+    .apple-pay-btn { display:inline-flex; align-items:center; justify-content:center; gap:0.35rem; width:100%; height:48px; border-radius:12px; border:1px solid #000; background:#000; color:#fff; font-weight:700; letter-spacing:0.01em; font-size:1rem; transition:transform 140ms ease, box-shadow 140ms ease, background 140ms ease; }
+    .apple-pay-btn:hover { transform:translateY(-1px); box-shadow:0 8px 18px rgba(0,0,0,0.35); background:#050505; }
+    .apple-pay-btn:focus { outline:2px solid rgba(255,255,255,0.25); outline-offset:3px; }
+    .apple-pay-icon { font-size:1.25rem; line-height:1; }
+    .summary-chip { display:inline-flex; align-items:center; gap:0.4rem; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:999px; padding:0.35rem 0.8rem; font-size:0.9rem; }
+    .breakdown-box { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:0.9rem; padding:1rem; }
+    .total-payable { background:linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)); border:1px solid rgba(255,255,255,0.18); border-radius:0.75rem; padding:0.75rem 1rem; }
+  </style>
+</head>
+<body class="theme-gradient d-flex flex-column min-vh-100">
+  <% 
+    const localSubtotal = typeof subtotal !== 'undefined' ? subtotal : (cart || []).reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const gstRateLocal = typeof gstRate !== 'undefined' ? gstRate : 0.09;
+    const deliveryRateLocal = typeof deliveryRate !== 'undefined' ? deliveryRate : 0.15;
+    const localDiscount = typeof discount !== 'undefined' ? discount : 0;
+    const discountedSubtotal = Math.max(0, localSubtotal - localDiscount);
+    const localGst = typeof gst !== 'undefined' ? gst : (discountedSubtotal * gstRateLocal);
+    const localDelivery = typeof deliveryFee !== 'undefined' ? deliveryFee : (discountedSubtotal * deliveryRateLocal);
+    const localTotal = typeof total !== 'undefined' ? total : (discountedSubtotal + localGst + localDelivery);
+    const itemCount = (cart || []).reduce((sum, item) => sum + item.quantity, 0);
+  %>
+  <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
+    <div class="container-fluid">
+      <a class="navbar-brand brand-logo" href="/">
+        <span class="brand-main">PokeVault</span>
+        <span class="brand-sub">SINGAPORE</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar" aria-controls="collapsibleNavbar" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="collapsibleNavbar">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item d-flex align-items-center me-3">
+            <span class="text-light small">Signed in as <strong><%= user.username %></strong></span>
+          </li>
+          <li class="nav-item"><a class="btn btn-outline-light" href="/cart">Back to Cart</a></li>
+          <li class="nav-item ms-2"><a class="btn btn-outline-light" href="/logout">Logout</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container flex-grow-1 py-4">
+    <div class="row g-3">
+      <div class="col-lg-8">
+        <div class="card-frosted h-100">
+          <h4 class="mb-3 fw-bold">Order Summary</h4>
+          <% if (messages && messages.length) { %>
+            <div class="alert alert-danger py-2"><%= messages[0] %></div>
+          <% } %>
+          <% if (promoApplied) { %>
+            <div class="alert alert-success py-2">Promo applied: <%= promoApplied.code %> (-$<%= promoApplied.amount.toFixed(2) %>)</div>
+          <% } %>
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <span class="summary-chip">Items <strong><%= itemCount %></strong></span>
+            <span class="summary-chip">GST <strong>$<%= (gst ?? localGst).toFixed(2) %></strong></span>
+            <span class="summary-chip">Delivery <strong>$<%= (deliveryFee ?? localDelivery).toFixed(2) %></strong></span>
+            <% if (localDiscount > 0) { %>
+              <span class="summary-chip text-success">Promo -$<%= localDiscount.toFixed(2) %></span>
+            <% } %>
+          </div>
+          <% cart.forEach(item => { %>
+            <div class="d-flex align-items-center justify-content-between py-2 border-bottom border-secondary border-opacity-25">
+              <div class="d-flex align-items-center">
+                <img src="/images/<%= item.image %>" alt="<%= item.productName %>" style="width:64px; height:64px; object-fit:cover; border-radius:0.5rem; border:1px solid rgba(255,255,255,0.08);" class="me-3">
+                <div>
+                  <div class="fw-bold"><%= item.productName %></div>
+                  <small class="text-white-50">Qty: <%= item.quantity %> ? $<%= item.price.toFixed(2) %> each</small>
+                  <% if (item.rarity || item.category) { %><div class="text-white-50"><small><%= item.rarity || item.category %></small></div><% } %>
+                </div>
+              </div>
+              <div class="fw-semibold">$<%= (item.price * item.quantity).toFixed(2) %></div>
+            </div>
+          <% }); %>
+          <div class="breakdown-box mt-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="fw-bold text-white-50">Subtotal</span>
+              <span class="fw-semibold">$<%= (subtotal ?? localSubtotal).toFixed(2) %></span>
+            </div>
+            <% if (localDiscount > 0) { %>
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="text-success">Promo applied</span>
+                <span class="text-success">- $<%= localDiscount.toFixed(2) %></span>
+              </div>
+            <% } %>
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="text-white-50">GST (<%= Math.round(gstRateLocal * 100) %>%)</span>
+              <span>$<%= (gst ?? localGst).toFixed(2) %></span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="text-white-50">Delivery Fee (<%= Math.round(deliveryRateLocal * 100) %>%)</span>
+              <span>$<%= (deliveryFee ?? localDelivery).toFixed(2) %></span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center total-payable mt-2">
+              <span class="fw-bold text-white-50">Total Due Today</span>
+              <span class="fs-5 fw-bold">$<%= (total ?? localTotal).toFixed(2) %></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card-frosted">
+          <h5 class="fw-bold mb-3">Confirm & Place Order</h5>
+          <div class="mb-3">
+            <form method="POST" action="/checkout/promo" class="d-flex gap-2">
+              <input type="text" name="promoCode" class="form-control input-ghost" placeholder="Promo code" value="<%= promoApplied ? promoApplied.code : '' %>">
+              <button type="submit" class="btn btn-outline-light btn-sm">Apply</button>
+            </form>
+            <% if (promoApplied) { %>
+              <form method="POST" action="/checkout/promo/remove" class="mt-2">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Remove promo (<%= promoApplied.code %>)</button>
+              </form>
+            <% } %>
+          </div>
+          <form method="POST" action="/checkout">
+            <div class="mb-3">
+              <div class="form-label mb-1">Name</div>
+              <div class="fw-semibold"><%= user.username %></div>
+            </div>
+            <div class="mb-3">
+              <div class="form-label mb-1">Contact</div>
+              <div class="fw-semibold"><%= user.contact || '?' %></div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Address</label>
+              <textarea class="form-control" rows="3" placeholder="Delivery address (optional)" name="address"><%= user.address || '' %></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Express Checkout</label>
+              <button type="button" class="apple-pay-btn" aria-label="Pay with Apple Pay">
+                <span>Buy with Apple Pay</span>
+              </button>
+              <small class="text-white-50 d-block mt-2">Styled to match the official Apple Pay button for demo purposes only.</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Payment Method</label>
+              <div class="d-flex gap-2 flex-wrap">
+                <label class="pill-choice">
+                  <input type="radio" name="paymentMethod" value="card" checked>
+                  <span>Credit / Debit Card</span>
+                </label>
+                <label class="pill-choice">
+                  <input type="radio" name="paymentMethod" value="cash">
+                  <span>Pay on Delivery</span>
+                </label>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Cardholder Name</label>
+              <input type="text" class="form-control input-ghost" name="cardName" placeholder="Name on card">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Card Number</label>
+              <input type="text" class="form-control input-ghost" name="cardNumber" inputmode="numeric" pattern="[0-9 ]{12,23}" placeholder="0000 0000 0000 0000" aria-describedby="cardNumberHelp">
+              <small id="cardNumberHelp" class="text-white-50">Use digits only; spaces are okay. Demo only ? no real payment is processed.</small>
+            </div>
+            <div class="row mb-3">
+              <div class="col-6">
+                <label class="form-label">Expiry</label>
+                <input type="text" class="form-control input-ghost" name="cardExpiry" placeholder="MM/YY" inputmode="numeric" pattern="(0[1-9]|1[0-2])/[0-9]{2}" aria-describedby="expiryHelp">
+                <small id="expiryHelp" class="text-white-50">Format: MM/YY (e.g., 09/26)</small>
+              </div>
+              <div class="col-6">
+                <label class="form-label">CVV</label>
+                <input type="password" class="form-control input-ghost" name="cardCvv" placeholder="123" inputmode="numeric" pattern="[0-9]{3,4}" aria-describedby="cvvHelp">
+                <small id="cvvHelp" class="text-white-50">3?4 digits</small>
+              </div>
+            </div>
+            <div class="d-grid">
+              <button type="submit" class="btn btn-cta">Place Order</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>  <footer class="site-footer mt-auto">
+  <div class="container text-center">
+    <p class="mb-1">Connecting Pokémon card collectors worldwide — shop, sell, and trade in a safe and growing community.</p>
+    <small class="small">© <%= new Date().getFullYear() %> PokéVault. All rights reserved.</small>
+  </div>
+</footer>
+</body>
+</html>
+

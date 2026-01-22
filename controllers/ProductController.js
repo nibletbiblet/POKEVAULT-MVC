@@ -41,7 +41,7 @@ const ProductController = {
 
   // Shopping (user view)
   shopping(req, res) {
-    Product.getAll((err, products) => {
+    Product.getActive((err, products) => {
       if (err) {
         console.error('Error fetching products:', err);
         return res.status(500).send('Database error');
@@ -183,6 +183,19 @@ const ProductController = {
     Product.delete(id, (err, result) => {
       if (err) {
         console.error('Error deleting product:', err);
+        return res.status(500).send('Database error');
+      }
+      return res.redirect('/inventory');
+    });
+  },
+
+  // Toggle product active status
+  setActive(req, res) {
+    const id = req.params.id;
+    const isActive = req.body && req.body.isActive === 'true';
+    Product.setActive(id, isActive, (err) => {
+      if (err) {
+        console.error('Error updating product status:', err);
         return res.status(500).send('Database error');
       }
       return res.redirect('/inventory');

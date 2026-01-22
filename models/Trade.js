@@ -59,10 +59,28 @@ const Trade = {
       FROM trades t
       LEFT JOIN products p1 ON t.initiator_product_id = p1.id
       LEFT JOIN users u1 ON t.initiator_id = u1.id
-      WHERE t.status = 'open' AND t.initiator_id != ?
+      WHERE t.status = 'open' AND t.responder_id IS NULL AND t.initiator_id != ?
       ORDER BY t.created_at DESC
     `;
     db.query(sql, [userId], (err, results) => callback(err, results));
+  },
+
+  listAll(callback) {
+    const sql = `
+      SELECT
+        t.*,
+        p1.productName AS initiatorProductName,
+        p2.productName AS responderProductName,
+        u1.username AS initiatorUsername,
+        u2.username AS responderUsername
+      FROM trades t
+      LEFT JOIN products p1 ON t.initiator_product_id = p1.id
+      LEFT JOIN products p2 ON t.responder_product_id = p2.id
+      LEFT JOIN users u1 ON t.initiator_id = u1.id
+      LEFT JOIN users u2 ON t.responder_id = u2.id
+      ORDER BY t.updated_at DESC, t.created_at DESC
+    `;
+    db.query(sql, (err, results) => callback(err, results));
   },
 
   offer({ tradeId, responderId, responderProductId, note }, callback) {

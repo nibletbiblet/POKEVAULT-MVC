@@ -1,22 +1,23 @@
 const express = require('express');
 const ProductController = require('../controllers/ProductController');
-const { checkAuthenticated, checkAdmin } = require('../middleware/auth');
+const { requireAuth, requireRole, requireMinRole } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
 const router = express.Router();
 
-router.get('/inventory', checkAuthenticated, checkAdmin, ProductController.inventory);
-router.get('/shopping', checkAuthenticated, ProductController.shopping);
-router.get('/product/:id', checkAuthenticated, ProductController.getById);
-router.post('/product/:id/reviews', checkAuthenticated, ProductController.postReview);
-router.post('/product/:id/reviews/:reviewId/delete', checkAuthenticated, ProductController.deleteReview);
+router.get('/inventory', requireAuth, requireMinRole('storekeeper'), ProductController.inventory);
+router.get('/shopping', requireAuth, ProductController.shopping);
+router.get('/product/:id', requireAuth, ProductController.getById);
+router.post('/product/:id/reviews', requireAuth, ProductController.postReview);
+router.post('/product/:id/reviews/:reviewId/delete', requireAuth, ProductController.deleteReview);
 
-router.get('/addProduct', checkAuthenticated, checkAdmin, ProductController.addForm);
-router.post('/addProduct', checkAuthenticated, checkAdmin, upload.single('image'), ProductController.add);
+router.get('/addProduct', requireAuth, requireRole('admin'), ProductController.addForm);
+router.post('/addProduct', requireAuth, requireRole('admin'), upload.single('image'), ProductController.add);
 
-router.get('/updateProduct/:id', checkAuthenticated, checkAdmin, ProductController.editForm);
-router.post('/updateProduct/:id', checkAuthenticated, checkAdmin, upload.single('image'), ProductController.update);
+router.get('/updateProduct/:id', requireAuth, requireRole('admin'), ProductController.editForm);
+router.post('/updateProduct/:id', requireAuth, requireRole('admin'), upload.single('image'), ProductController.update);
 
-router.get('/deleteProduct/:id', checkAuthenticated, checkAdmin, ProductController.delete);
+router.get('/deleteProduct/:id', requireAuth, requireMinRole('storekeeper'), ProductController.delete);
+router.post('/products/:id/status', requireAuth, requireMinRole('storekeeper'), ProductController.setActive);
 
 module.exports = router;

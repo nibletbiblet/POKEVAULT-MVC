@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="/theme.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <title>Trade Chat</title>
+  <style>
+    body {
+      background: #0b0c0f;
+      color: #e9ecef;
+      font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    .page-shell { padding-top: 2rem; padding-bottom: 2rem; }
+    .glass-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 1rem;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.5);
+    }
+    .custom-navbar {
+      background-color: transparent !important;
+      padding-top: 1.05rem;
+      padding-bottom: 1.05rem;
+      min-height: 80px;
+      z-index: 1030;
+      box-shadow: none;
+    }
+    .brand-logo {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      display: inline-flex;
+      flex-direction: column;
+      text-align: center;
+      text-decoration: none;
+      line-height: 1.05;
+      padding-left: 0.1rem;
+    }
+    .brand-main {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: 0.33em;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+    .brand-sub {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.75);
+      margin-top: 0.15rem;
+    }
+    .chat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .chat-counter {
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(233,236,239,0.7);
+      font-weight: 600;
+    }
+    .chat-panel {
+      margin-top: 0.8rem;
+      padding: 0.75rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed rgba(255,255,255,0.12);
+    }
+    .chat-messages {
+      max-height: 260px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      padding-right: 0.3rem;
+    }
+    .chat-message { display: flex; flex-direction: column; gap: 0.2rem; }
+    .chat-bubble {
+      padding: 0.45rem 0.7rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .chat-out .chat-bubble { background: rgba(88,166,255,0.2); border-color: rgba(88,166,255,0.4); }
+    .chat-meta { font-size: 0.7rem; color: rgba(234,242,255,0.7); }
+    .chat-form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem;
+      margin-top: 0.6rem;
+    }
+    .chat-form input {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      border-radius: 999px;
+      padding: 0.4rem 0.9rem;
+    }
+    .chat-form button {
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(90deg, #0fb0ff 0%, #4ad4ff 100%);
+      color: #04101f;
+      font-weight: 700;
+      padding: 0.35rem 0.9rem;
+    }
+    .proposal-panel {
+      margin-top: 0.8rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .proposal-card {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.4rem;
+      padding: 0.45rem 0.6rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+    }
+    .proposal-card + .proposal-card { margin-top: 0.5rem; }
+    .proposal-actions { display: flex; gap: 0.4rem; }
+    .proposal-actions button {
+      border-radius: 999px;
+      padding: 0.2rem 0.7rem;
+      font-size: 0.75rem;
+    }
+    #tradeChatCarousel {
+      position: relative;
+      overflow: visible;
+    }
+    .carousel-control-prev-icon,
+    .carousel-control-next-icon {
+      width: 3rem;
+      height: 3rem;
+      background-size: 100% 100%;
+      filter: drop-shadow(0 8px 16px rgba(0,0,0,0.5));
+    }
+    .carousel-control-prev,
+    .carousel-control-next {
+      width: auto;
+      opacity: 0.9;
+    }
+    .carousel-control-prev {
+      left: -3.75rem;
+    }
+    .carousel-control-next {
+      right: -3.75rem;
+    }
+    .carousel-control-prev:hover,
+    .carousel-control-next:hover {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="theme-gradient d-flex flex-column min-vh-100">
+  <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
+    <div class="container-fluid" role="navigation" aria-label="Main navigation">
+      <a class="navbar-brand brand-logo" href="/">
+        <span class="brand-main">PokeVault</span>
+        <span class="brand-sub">SINGAPORE</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar" aria-controls="collapsibleNavbar" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="collapsibleNavbar">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item d-flex align-items-center me-3">
+            <span class="text-light small">Signed in as <strong><%= user.username %></strong></span>
+          </li>
+          <li class="nav-item me-2">
+            <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/my-trades">My Trades</a>
+          </li>
+          <li class="nav-item">
+            <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/logout">Logout</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container page-shell flex-grow-1">
+    <% const acceptedTrades = (typeof myTrades !== 'undefined' && Array.isArray(myTrades)) ? myTrades.filter(t => t.status === 'accepted') : []; %>
+    <% const messagesByTrade = (typeof messagesByTradeId !== 'undefined' && messagesByTradeId) ? messagesByTradeId : {}; %>
+    <% const proposalsByTrade = (typeof proposalsByTradeId !== 'undefined' && proposalsByTradeId) ? proposalsByTradeId : {}; %>
+
+    <div class="glass-card p-4">
+      <div class="chat-header mb-3">
+        <div>
+          <div class="text-uppercase text-white-50 small fw-semibold">Live trade chat</div>
+          <h5 class="mb-0">Accepted trades</h5>
+        </div>
+        <div class="chat-counter" id="chatCounter">1 / 1</div>
+      </div>
+
+      <% if (!acceptedTrades.length) { %>
+        <p class="text-white-50 mb-0">No accepted trades yet.</p>
+      <% } else { %>
+        <div id="tradeChatCarousel" class="carousel slide" data-bs-interval="false">
+          <div class="carousel-inner">
+            <% acceptedTrades.forEach((t, idx) => { %>
+              <% const isOwner = t.initiator_id === user.id; %>
+              <% const ownerCard = t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
+              <% const responderCard = t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null; %>
+              <% const partnerName = isOwner ? (t.responderUsername || ('User #' + t.responder_id)) : (t.initiatorUsername || ('User #' + t.initiator_id)); %>
+              <div class="carousel-item <%= idx === 0 ? 'active' : '' %>">
+                <div class="chat-panel" data-trade-id="<%= t.id %>">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                      <div class="fw-semibold">Trade with <%= partnerName %></div>
+                      <div class="text-white-50 small">You offered: <%= isOwner ? ownerCard : (responderCard || 'Card') %></div>
+                      <div class="text-white-50 small">They offered: <%= isOwner ? (responderCard || 'Card') : ownerCard %></div>
+                    </div>
+                    <span class="badge text-bg-secondary">#<%= t.id %></span>
+                  </div>
+
+                  <div class="chat-messages mt-3" id="chat-messages-<%= t.id %>">
+                    <% (messagesByTrade[t.id] || []).forEach(m => { %>
+                      <div class="chat-message <%= m.sender_id === user.id ? 'chat-out' : 'chat-in' %>">
+                        <div class="chat-meta"><%= m.senderUsername || 'User' %> · <%= new Date(m.created_at).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) %></div>
+                        <div class="chat-bubble"><%= m.message %></div>
+                      </div>
+                    <% }); %>
+                  </div>
+                  <form class="chat-form" data-trade-id="<%= t.id %>">
+                    <input type="text" name="message" placeholder="Send a message..." maxlength="500" required>
+                    <button type="submit">Send</button>
+                  </form>
+
+                  <div class="proposal-panel">
+                    <div class="fw-semibold mb-2">Meeting proposals (SGT)</div>
+                    <div id="proposal-list-<%= t.id %>">
+                      <% (proposalsByTrade[t.id] || []).forEach(p => { %>
+                        <div class="proposal-card" data-proposal-id="<%= p.id %>">
+                          <div>
+                            <div class="fw-semibold"><%= new Date(p.proposed_at).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) %></div>
+                            <div class="notification-meta">Proposed by <%= p.proposerUsername || 'User' %> · <%= p.status %></div>
+                          </div>
+                          <% if (p.status === 'proposed' && p.proposer_id !== user.id) { %>
+                            <div class="proposal-actions">
+                              <button type="button" class="btn btn-success btn-sm proposal-action" data-action="accepted" data-trade-id="<%= t.id %>" data-proposal-id="<%= p.id %>">Accept</button>
+                              <button type="button" class="btn btn-outline-danger btn-sm proposal-action" data-action="declined" data-trade-id="<%= t.id %>" data-proposal-id="<%= p.id %>">Decline</button>
+                            </div>
+                          <% } %>
+                        </div>
+                      <% }); %>
+                    </div>
+                    <form class="proposal-form mt-2" data-trade-id="<%= t.id %>">
+                      <div class="row g-2 align-items-end">
+                        <div class="col-12 col-md-8">
+                          <label class="form-label text-white-50">Propose a new time (SGT)</label>
+                          <input type="datetime-local" name="proposedAt" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-12 col-md-4 d-grid">
+                          <button type="submit" class="btn btn-ghost btn-sm">Propose</button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            <% }); %>
+          </div>
+
+          <button class="carousel-control-prev" type="button" data-bs-target="#tradeChatCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+          </button>
+          <button class="carousel-control-next" type="button" data-bs-target="#tradeChatCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+          </button>
+        </div>
+      <% } %>
+    </div>
+  </main>
+
+  <footer class="site-footer mt-auto">
+    <div class="container text-center">
+      <p class="mb-1">Connecting Pokemon card collectors worldwide - shop, sell, and trade in a safe and growing community.</p>
+      <small class="small">Ac <%= new Date().getFullYear() %> PokeVault. All rights reserved.</small>
+    </div>
+  </footer>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    (function() {
+      const user = <%- JSON.stringify(user ? { id: user.id, username: user.username } : null) %>;
+      if (!user) return;
+      const tradeIds = <%- JSON.stringify(acceptedTrades.map(t => t.id)) %>;
+      const socket = io();
+      socket.emit('join', { userId: user.id, tradeIds });
+
+      const formatTime = (value) => new Date(value).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
+      const counter = document.getElementById('chatCounter');
+      const totalSlides = <%- JSON.stringify(acceptedTrades.length) %>;
+      const carousel = document.getElementById('tradeChatCarousel');
+      if (counter) counter.textContent = `${totalSlides ? 1 : 0} / ${totalSlides}`;
+      if (carousel && counter) {
+        carousel.addEventListener('slid.bs.carousel', (event) => {
+          const nextIndex = typeof event.to === 'number' ? event.to : 0;
+          counter.textContent = `${nextIndex + 1} / ${totalSlides}`;
+        });
+      }
+
+      socket.on('trade:message', (msg) => {
+        const container = document.getElementById(`chat-messages-${msg.trade_id}`);
+        if (!container) return;
+        const wrap = document.createElement('div');
+        wrap.className = `chat-message ${msg.sender_id === user.id ? 'chat-out' : 'chat-in'}`;
+        wrap.innerHTML = `<div class="chat-meta">${msg.senderUsername || 'User'} · ${formatTime(msg.created_at || new Date().toISOString())}</div><div class="chat-bubble"></div>`;
+        wrap.querySelector('.chat-bubble').textContent = msg.message;
+        container.appendChild(wrap);
+        container.scrollTop = container.scrollHeight;
+      });
+
+      socket.on('meeting:proposed', (proposal) => {
+        const list = document.getElementById(`proposal-list-${proposal.trade_id}`);
+        if (!list) return;
+        const card = document.createElement('div');
+        card.className = 'proposal-card';
+        card.dataset.proposalId = proposal.id;
+        const actions = proposal.proposer_id !== user.id
+          ? `<div class="proposal-actions">
+              <button type="button" class="btn btn-success btn-sm proposal-action" data-action="accepted" data-trade-id="${proposal.trade_id}" data-proposal-id="${proposal.id}">Accept</button>
+              <button type="button" class="btn btn-outline-danger btn-sm proposal-action" data-action="declined" data-trade-id="${proposal.trade_id}" data-proposal-id="${proposal.id}">Decline</button>
+            </div>`
+          : '';
+        card.innerHTML = `
+          <div>
+            <div class="fw-semibold">${formatTime(proposal.proposed_at)}</div>
+            <div class="notification-meta">Proposed by ${proposal.proposerUsername || 'User'} · proposed</div>
+          </div>
+          ${actions}
+        `;
+        list.appendChild(card);
+      });
+
+      socket.on('meeting:responded', (payload) => {
+        const list = document.getElementById(`proposal-list-${payload.trade_id}`);
+        if (!list) return;
+        const card = list.querySelector(`[data-proposal-id="${payload.id}"]`);
+        if (!card) return;
+        const meta = card.querySelector('.notification-meta');
+        if (meta) meta.textContent = `Updated · ${payload.status}`;
+        const actions = card.querySelector('.proposal-actions');
+        if (actions) actions.remove();
+      });
+
+      document.querySelectorAll('.chat-form').forEach((form) => {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const tradeId = form.dataset.tradeId;
+          const input = form.querySelector('input[name="message"]');
+          const message = input ? input.value.trim() : '';
+          if (!message) return;
+          const body = new URLSearchParams({ message });
+          try {
+            const res = await fetch(`/trades/${tradeId}/messages`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body
+            });
+            if (!res.ok) throw new Error('Message failed');
+            if (input) input.value = '';
+          } catch (err) {
+            console.error(err);
+          }
+        });
+      });
+
+      document.querySelectorAll('.proposal-form').forEach((form) => {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const tradeId = form.dataset.tradeId;
+          const input = form.querySelector('input[name="proposedAt"]');
+          const proposedAt = input ? input.value : '';
+          if (!proposedAt) return;
+          const body = new URLSearchParams({ proposedAt });
+          try {
+            const res = await fetch(`/trades/${tradeId}/meeting-proposals`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body
+            });
+            if (!res.ok) throw new Error('Proposal failed');
+            if (input) input.value = '';
+          } catch (err) {
+            console.error(err);
+          }
+        });
+      });
+
+      document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.proposal-action');
+        if (!btn) return;
+        const tradeId = btn.dataset.tradeId;
+        const proposalId = btn.dataset.proposalId;
+        const action = btn.dataset.action;
+        const body = new URLSearchParams({ action });
+        try {
+          const res = await fetch(`/trades/${tradeId}/meeting-proposals/${proposalId}/respond`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+          });
+          if (!res.ok) throw new Error('Response failed');
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

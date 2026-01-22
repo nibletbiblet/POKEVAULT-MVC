@@ -22,6 +22,203 @@
       backdrop-filter: blur(12px);
       box-shadow: 0 18px 40px rgba(0,0,0,0.5);
     }
+    .trade-hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 1.2rem;
+      padding: 2rem;
+      background: radial-gradient(120% 120% at 10% 10%, rgba(88,166,255,0.18), transparent 60%),
+        linear-gradient(135deg, rgba(7,12,20,0.92), rgba(7,10,18,0.98));
+      border: 1px solid rgba(88,166,255,0.25);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.55);
+    }
+    .trade-hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg, rgba(0,0,0,0) 0%, rgba(17,170,255,0.16) 45%, rgba(0,0,0,0) 100%);
+      mix-blend-mode: screen;
+      opacity: 0.65;
+      pointer-events: none;
+    }
+    .hero-title {
+      font-size: clamp(1.65rem, 2.3vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.4rem;
+    }
+    .hero-sub {
+      color: rgba(233,236,239,0.78);
+      max-width: 520px;
+    }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.75rem;
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 0.85rem;
+      padding: 0.85rem 1rem;
+      min-height: 92px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+    .stat-label {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.62rem;
+      color: rgba(233,236,239,0.6);
+      font-weight: 700;
+    }
+    .stat-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+    .soft-divider {
+      height: 1px;
+      background: linear-gradient(90deg, rgba(255,255,255,0), rgba(88,166,255,0.35), rgba(255,255,255,0));
+      margin: 1.5rem 0;
+    }
+    .info-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      border-radius: 999px;
+      padding: 0.3rem 0.75rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.88);
+    }
+    .trade-card {
+      background: rgba(6,12,22,0.7);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 0.9rem;
+      padding: 1rem;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .trade-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(88,166,255,0.38);
+      box-shadow: 0 16px 30px rgba(0,0,0,0.45);
+    }
+    .trade-meta {
+      font-size: 0.78rem;
+      color: rgba(233,236,239,0.7);
+    }
+    .trade-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.7rem;
+    }
+    .chat-panel {
+      margin-top: 0.8rem;
+      padding: 0.75rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed rgba(255,255,255,0.12);
+    }
+    .chat-messages {
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      padding-right: 0.3rem;
+    }
+    .chat-message { display: flex; flex-direction: column; gap: 0.2rem; }
+    .chat-bubble {
+      padding: 0.45rem 0.7rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .chat-out .chat-bubble { background: rgba(88,166,255,0.2); border-color: rgba(88,166,255,0.4); }
+    .chat-meta { font-size: 0.7rem; color: rgba(234,242,255,0.7); }
+    .chat-form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem;
+      margin-top: 0.6rem;
+    }
+    .chat-form input {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      border-radius: 999px;
+      padding: 0.4rem 0.9rem;
+    }
+    .chat-form button {
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(90deg, #0fb0ff 0%, #4ad4ff 100%);
+      color: #04101f;
+      font-weight: 700;
+      padding: 0.35rem 0.9rem;
+    }
+    .proposal-panel {
+      margin-top: 0.8rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .proposal-card {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.4rem;
+      padding: 0.45rem 0.6rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+    }
+    .proposal-card + .proposal-card { margin-top: 0.5rem; }
+    .proposal-actions { display: flex; gap: 0.4rem; }
+    .proposal-actions button {
+      border-radius: 999px;
+      padding: 0.2rem 0.7rem;
+      font-size: 0.75rem;
+    }
+    .trade-form {
+      background: rgba(255,255,255,0.02);
+      border-radius: 0.8rem;
+      border: 1px dashed rgba(255,255,255,0.12);
+      padding: 1rem;
+    }
+    .trade-form .form-label { font-size: 0.8rem; }
+    .trade-kicker {
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      font-size: 0.62rem;
+      color: rgba(233,236,239,0.65);
+      font-weight: 700;
+    }
+    .timeline-step {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 0.6rem;
+      align-items: start;
+    }
+    .timeline-dot {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(88,166,255,0.2);
+      border: 1px solid rgba(88,166,255,0.5);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 0.75rem;
+      color: #d5f3ff;
+      box-shadow: 0 0 12px rgba(88,166,255,0.35);
+    }
     .pill {
       display: inline-flex;
       align-items: center;
@@ -60,6 +257,24 @@
       z-index: 1030;
       box-shadow: none;
     }
+    .chat-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      border: 1px solid rgba(88,166,255,0.45);
+      background: rgba(88,166,255,0.12);
+      color: #d5f3ff;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .chat-link:hover {
+      color: #ffffff;
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(15,176,255,0.3);
+    }
+    .chat-link svg { width: 18px; height: 18px; }
     .btn-glow {
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,0.18);
@@ -117,6 +332,13 @@
             <span class="text-light small">Signed in as <strong><%= user.username %></strong></span>
           </li>
           <li class="nav-item me-2">
+            <a class="chat-link" href="/trade-chat" title="Trade chat" aria-label="Trade chat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 5h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/>
+              </svg>
+            </a>
+          </li>
+          <li class="nav-item me-2">
             <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/" title="Home">Home</a>
           </li>
           <li class="nav-item me-2">
@@ -137,6 +359,12 @@
   </nav>
 
   <main class="container page-shell flex-grow-1">
+    <% const messagesByTrade = (typeof messagesByTradeId !== 'undefined' && messagesByTradeId) ? messagesByTradeId : {}; %>
+    <% const proposalsByTrade = (typeof proposalsByTradeId !== 'undefined' && proposalsByTradeId) ? proposalsByTradeId : {}; %>
+    <% const openCount = openTrades.length; %>
+    <% const myCount = myTrades.length; %>
+    <% const pendingCount = myTrades.filter(t => t.status === 'pending_initiator' && t.initiator_id === user.id).length; %>
+    <% const activeCount = myTrades.filter(t => t.status === 'open' || t.status === 'pending_initiator').length; %>
     <% if (errors && errors.length) { %>
       <div class="alert alert-danger">
         <% errors.forEach(err => { %>
@@ -152,16 +380,56 @@
       </div>
     <% } %>
 
+    <section class="trade-hero mb-4">
+      <div class="row g-4 align-items-center">
+        <div class="col-lg-7">
+          <div class="trade-kicker">Collector trading hub</div>
+          <h1 class="hero-title">Swap cards with confidence.</h1>
+          <p class="hero-sub mb-3">Post a trade, review offers, and lock in swaps with fellow collectors. Keep everything organized and fast with your personalized trade dashboard.</p>
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-glow" href="#start-trade">Start a trade</a>
+            <a class="btn btn-outline-light" href="/trades/all">View all trades</a>
+            <span class="info-chip">Live updates on your offers</span>
+            <span class="info-chip">One trade at a time, always in control</span>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">Open trades</div>
+              <div class="stat-value"><%= openCount %></div>
+              <div class="trade-meta">Collectors waiting for offers.</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Your trades</div>
+              <div class="stat-value"><%= myCount %></div>
+              <div class="trade-meta">Active and completed.</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Awaiting your decision</div>
+              <div class="stat-value"><%= pendingCount %></div>
+              <div class="trade-meta">Offers you can accept now.</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Active threads</div>
+              <div class="stat-value"><%= activeCount %></div>
+              <div class="trade-meta">Keep an eye on responses.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <div class="row g-4">
       <div class="col-12">
-        <div class="glass-card p-4">
+        <div class="glass-card p-4" id="start-trade">
           <div class="d-flex justify-content-between flex-wrap gap-2 align-items-center mb-3">
             <div>
               <div class="text-uppercase text-white-50 small fw-semibold">Start a trade</div>
               <h5 class="mb-0 section-title">Offer your card</h5>
             </div>
           </div>
-          <form action="/trades" method="POST" class="row g-3">
+          <form action="/trades" method="POST" class="row g-3 trade-form">
             <div class="col-md-6">
               <label class="form-label text-white-50">Card you are offering</label>
               <select class="form-select" name="productId" required>
@@ -179,114 +447,46 @@
               <button type="submit" class="btn btn-glow">Post trade</button>
             </div>
           </form>
+          <div class="soft-divider"></div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="trade-kicker mb-2">Trade flow</div>
+              <div class="vstack gap-2">
+                <div class="timeline-step">
+                  <div class="timeline-dot">1</div>
+                  <div>
+                    <div class="fw-semibold">Post your card</div>
+                    <div class="trade-meta">Collectors see your offer instantly.</div>
+                  </div>
+                </div>
+                <div class="timeline-step">
+                  <div class="timeline-dot">2</div>
+                  <div>
+                    <div class="fw-semibold">Review incoming offers</div>
+                    <div class="trade-meta">Compare cards and notes on this page.</div>
+                  </div>
+                </div>
+                <div class="timeline-step">
+                  <div class="timeline-dot">3</div>
+                  <div>
+                    <div class="fw-semibold">Accept or decline</div>
+                    <div class="trade-meta">You stay in control until you accept.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="trade-kicker mb-2">Collector tips</div>
+              <ul class="list-unstyled mb-0 text-white-50">
+                <li class="mb-1">Share condition details in your notes.</li>
+                <li class="mb-1">Confirm card rarity and set before trading.</li>
+                <li>Use direct chat once both parties accept.</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="col-lg-6">
-        <div class="glass-card p-4 h-100">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="section-title mb-0">Open trades from others</h6>
-            <span class="badge text-bg-secondary"><%= openTrades.length %></span>
-          </div>
-          <% if (openTrades.length === 0) { %>
-            <p class="text-white-50 mb-0">No open trades right now.</p>
-          <% } else { %>
-            <div class="vstack gap-3">
-              <% openTrades.forEach(t => { %>
-                <div class="p-3 rounded border border-1 border-secondary-subtle">
-                  <div class="d-flex justify-content-between align-items-center mb-2">
-                    <div>
-                      <div class="fw-semibold"><%= t.initiatorProductName || 'Card #' + t.initiator_product_id %></div>
-                      <small class="text-white-50">Offered by <%= t.initiatorUsername || ('user #' + t.initiator_id) %></small>
-                    </div>
-                    <span class="pill pill-<%= t.status %> text-uppercase small"><%= t.status.replace('_', ' ') %></span>
-                  </div>
-                  <form action="/trades/<%= t.id %>/offer" method="POST" class="row g-2 align-items-end">
-                    <div class="col-12 col-md-6">
-                      <label class="form-label text-white-50">Offer your card</label>
-                      <select class="form-select form-select-sm" name="productId" required>
-                        <option value="">Select</option>
-                        <% products.forEach(p => { %>
-                          <option value="<%= p.id %>"><%= p.productName %></option>
-                        <% }); %>
-                      </select>
-                    </div>
-                    <div class="col-12 col-md-4">
-                      <label class="form-label text-white-50">Note (optional)</label>
-                      <input class="form-control form-control-sm" name="note" maxlength="255" placeholder="Message">
-                    </div>
-                    <div class="col-12 col-md-2 d-grid">
-                      <button type="submit" class="btn btn-ghost btn-sm">Offer</button>
-                    </div>
-                  </form>
-                </div>
-              <% }); %>
-            </div>
-          <% } %>
-        </div>
-      </div>
-
-      <div class="col-lg-6">
-        <div class="glass-card p-4 h-100">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="section-title mb-0">Your trades & offers</h6>
-            <span class="badge text-bg-secondary"><%= myTrades.length %></span>
-          </div>
-          <% if (myTrades.length === 0) { %>
-            <p class="text-white-50 mb-0">You have no trades yet.</p>
-          <% } else { %>
-            <div class="vstack gap-3">
-              <% myTrades.forEach(t => { %>
-                <% const isOwner = t.initiator_id === user.id; %>
-                <% const isResponder = t.responder_id === user.id; %>
-                <% const ownerCard = t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
-                <% const responderCard = t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null; %>
-                <% const ownerLabel = isOwner ? 'You' : (t.initiatorUsername || ('User #' + t.initiator_id)); %>
-                <% const responderLabel = isResponder ? 'You' : (t.responderUsername || (t.responder_id ? ('User #' + t.responder_id) : '')); %>
-                <div class="p-3 rounded border border-1 border-secondary-subtle">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <% if (isOwner) { %>
-                        <div class="fw-semibold">You offered: <%= ownerCard %></div>
-                        <% if (responderCard) { %>
-                          <div class="text-white-50 small"><%= responderLabel || 'They' %> offered: <%= responderCard %></div>
-                        <% } else { %>
-                          <div class="text-white-50 small">Awaiting an offer.</div>
-                        <% } %>
-                      <% } else { %>
-                        <div class="fw-semibold"><%= ownerLabel %> offered: <%= ownerCard %></div>
-                        <% if (responderCard) { %>
-                          <div class="text-white-50 small"><%= responderLabel %> offered: <%= responderCard %></div>
-                        <% } else { %>
-                          <div class="text-white-50 small">You offered this card.</div>
-                        <% } %>
-                      <% } %>
-                    </div>
-                    <span class="pill pill-<%= t.status %> text-uppercase small"><%= t.status.replace('_', ' ') %></span>
-                  </div>
-                  <% if (t.status === 'pending_initiator' && t.responder_id && isOwner) { %>
-                    <div class="d-flex gap-2 mt-2">
-                      <form action="/trades/<%= t.id %>/accept" method="POST">
-                        <button type="submit" class="btn btn-success btn-sm">Accept</button>
-                      </form>
-                      <form action="/trades/<%= t.id %>/decline" method="POST">
-                        <button type="submit" class="btn btn-outline-danger btn-sm">Decline</button>
-                      </form>
-                    </div>
-                  <% } %>
-                  <% if (isOwner && (t.status === 'open' || t.status === 'pending_initiator')) { %>
-                    <div class="mt-2">
-                      <form action="/trades/<%= t.id %>/cancel" method="POST">
-                        <button type="submit" class="btn btn-outline-light btn-sm">Cancel trade</button>
-                      </form>
-                    </div>
-                  <% } %>
-                </div>
-              <% }); %>
-            </div>
-          <% } %>
-        </div>
-      </div>
     </div>
   </main>
   <footer class="site-footer mt-auto">

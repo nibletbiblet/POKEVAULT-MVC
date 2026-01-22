@@ -1,5 +1,8 @@
 const db = require('../db');
+const bcrypt = require('bcrypt');
 const Order = require('../models/Order');
+
+const ALLOWED_ROLES = ['admin', 'storekeeper', 'user'];
 
 // Promise wrapper to run SQL with async/await
 const runQuery = (sql, params = []) => new Promise((resolve, reject) => {
@@ -55,9 +58,9 @@ const AdminController = {
     });
   },
 
-  addUser(req, res) {
+  async addUser(req, res) {
     const { username, email, password, address, contact, role } = req.body;
-    const chosenRole = ['admin', 'user'].includes(role) ? role : 'user';
+    const chosenRole = ALLOWED_ROLES.includes(role) ? role : 'user';
 
     if (!username || !email || !password || !address || !contact) {
       req.flash('error', 'All fields are required.');
@@ -70,8 +73,9 @@ const AdminController = {
       return res.redirect('/admin/users/add');
     }
 
-    const sql = 'INSERT INTO users (username, email, password, address, contact, role) VALUES (?, ?, SHA1(?), ?, ?, ?)';
-    db.query(sql, [username, email, password, address, contact, chosenRole], (err) => {
+    const passwordHash = await bcrypt.hash(password, 10);
+    const sql = 'INSERT INTO users (username, email, password, address, contact, role) VALUES (?, ?, ?, ?, ?, ?)';
+    db.query(sql, [username, email, passwordHash, address, contact, chosenRole], (err) => {
       if (err) {
         console.error('Error adding user:', err);
         req.flash('error', 'Could not create user.');
@@ -115,11 +119,11 @@ const AdminController = {
   editUser(req, res) {
     const userId = req.params.id;
     const { username, email, password, address, contact, role } = req.body;
-    const chosenRole = ['admin', 'user'].includes(role) ? role : 'user';
+    const chosenRole = ALLOWED_ROLES.includes(role) ? role : 'user';
 
     // Prevent editing other admin accounts
     const guardSql = 'SELECT id, role FROM users WHERE id = ?';
-    db.query(guardSql, [userId], (err, rows) => {
+    db.query(guardSql, [userId], async (err, rows) => {
       if (err) {
         console.error('Error checking user role:', err);
         req.flash('error', 'Could not update user.');
@@ -135,6 +139,14 @@ const AdminController = {
       if (target.role === 'admin' && !isSelf) {
         req.flash('error', 'Admin accounts cannot be edited by other admins.');
         return res.redirect('/admin/users');
+      }
+      if (target.role === 'admin' && chosenRole !== 'admin') {
+        const adminCountRows = await runQuery('SELECT COUNT(*) AS total FROM users WHERE role = "admin"');
+        const adminCount = adminCountRows[0]?.total || 0;
+        if (adminCount <= 1) {
+          req.flash('error', 'Cannot remove the last remaining admin.');
+          return res.redirect(`/admin/users/${userId}/edit`);
+        }
       }
 
       if (!username || !email || !address || !contact) {
@@ -157,8 +169,9 @@ const AdminController = {
       ];
       const params = [username, email, address, contact, chosenRole];
       if (password) {
-        setParts.push('password = SHA1(?)');
-        params.push(password);
+        const passwordHash = await bcrypt.hash(password, 10);
+        setParts.push('password = ?');
+        params.push(passwordHash);
       }
       params.push(userId);
 
@@ -180,7 +193,7 @@ const AdminController = {
   deleteUser(req, res) {
     const userId = req.params.id;
     const fetchSql = 'SELECT id, username, role FROM users WHERE id = ?';
-    db.query(fetchSql, [userId], (err, rows) => {
+    db.query(fetchSql, [userId], async (err, rows) => {
       if (err) {
         console.error('Error checking user for deletion:', err);
         req.flash('error', 'Could not delete user.');
@@ -193,8 +206,12 @@ const AdminController = {
 
       const target = rows[0];
       if (target.role === 'admin') {
-        req.flash('error', 'Admin accounts cannot be deleted.');
-        return res.redirect('/admin/users');
+        const adminCountRows = await runQuery('SELECT COUNT(*) AS total FROM users WHERE role = "admin"');
+        const adminCount = adminCountRows[0]?.total || 0;
+        if (adminCount <= 1) {
+          req.flash('error', 'Cannot remove the last remaining admin.');
+          return res.redirect('/admin/users');
+        }
       }
 
       const sql = 'DELETE FROM users WHERE id = ?';

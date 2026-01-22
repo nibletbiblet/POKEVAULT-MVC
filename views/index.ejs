@@ -4,12 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Google Font: Montserrat (Gotham-like) -->
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="/theme.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <title>Supermarket App</title>
+  <title>PokeVault</title>
   <style>
     /* Gradient backdrop handled via theme.css; overlay keeps text readable. */
     body {
@@ -27,6 +26,18 @@
       background: linear-gradient(180deg, rgba(5, 10, 21, 0.72) 0%, rgba(7, 18, 38, 0.9) 52%, rgba(5, 12, 28, 0.95) 100%);
       pointer-events: none;
       z-index: -1;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(circle at 10% 20%, rgba(88,166,255,0.12), transparent 28%),
+        radial-gradient(circle at 85% 25%, rgba(76,210,255,0.12), transparent 32%),
+        radial-gradient(circle at 30% 85%, rgba(88,166,255,0.1), transparent 30%);
+      opacity: 0.55;
+      pointer-events: none;
+      z-index: -2;
     }
     /* Invisible (transparent) navbar that still sits above overlay and keeps spacing */
     .custom-navbar {
@@ -52,7 +63,7 @@
     }
     /* Apply Montserrat (Gotham-like) as the primary typeface */
     body {
-      font-family: 'Montserrat', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-family: 'Space Grotesk', 'Montserrat', sans-serif;
       -webkit-font-smoothing:antialiased;
       -moz-osx-font-smoothing:grayscale;
     }
@@ -124,6 +135,40 @@
     .pikachu-pop img {
       width: 100%;
       display: block;
+    }
+    .hero-figures {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .hero-figure {
+      position: absolute;
+      opacity: 0.18;
+      filter: blur(0.2px) drop-shadow(0 10px 25px rgba(0,0,0,0.55));
+      animation: driftFloat 6s ease-in-out infinite;
+    }
+    .hero-figure.figure-1 {
+      width: 180px;
+      left: -10px;
+      bottom: -10px;
+      animation-delay: 0.2s;
+    }
+    .hero-figure.figure-2 {
+      width: 150px;
+      right: 35%;
+      top: -20px;
+      animation-delay: 0.8s;
+    }
+    .hero-figure.figure-3 {
+      width: 190px;
+      right: -20px;
+      bottom: 10px;
+      animation-delay: 1.2s;
+    }
+    @keyframes driftFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
     }
 
     .hero-heading {
@@ -206,6 +251,135 @@
       box-shadow: 0 10px 24px rgba(0,0,0,0.35);
     }
     .btn-ghost:hover { border-color: rgba(88,166,255,0.7); color: #ffffff; }
+    .hero-panel .btn {
+      position: relative;
+      z-index: 3;
+      pointer-events: auto;
+    }
+
+    .notification-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .notification-card {
+      background: linear-gradient(140deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+      border: 1px solid rgba(88,166,255,0.25);
+      border-radius: 16px;
+      padding: 1rem 1.2rem;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    }
+    .notification-item {
+      padding: 0.65rem 0.8rem;
+      border-radius: 12px;
+      background: rgba(6,12,22,0.7);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .notification-item + .notification-item { margin-top: 0.6rem; }
+    .notification-meta { font-size: 0.75rem; color: rgba(234,242,255,0.7); }
+
+    .trade-shell {
+      margin-top: 2.5rem;
+    }
+    .trade-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+    .trade-card {
+      background: rgba(6,12,22,0.7);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 1rem;
+      box-shadow: 0 12px 26px rgba(0,0,0,0.35);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      border-radius: 999px;
+      padding: 0.2rem 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .pill-open { background: rgba(59,130,246,0.18); color: #bfdbfe; border: 1px solid rgba(59,130,246,0.4); }
+    .pill-pending_initiator { background: rgba(234,179,8,0.16); color: #fde68a; border: 1px solid rgba(234,179,8,0.4); }
+    .pill-accepted { background: rgba(16,185,129,0.18); color: #a7f3d0; border: 1px solid rgba(16,185,129,0.45); }
+    .pill-declined { background: rgba(239,68,68,0.16); color: #fecdd3; border: 1px solid rgba(239,68,68,0.45); }
+    .pill-cancelled { background: rgba(107,114,128,0.16); color: #e5e7eb; border: 1px solid rgba(107,114,128,0.45); }
+
+    .chat-panel {
+      margin-top: 0.8rem;
+      padding: 0.75rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed rgba(255,255,255,0.12);
+    }
+    .chat-messages {
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      padding-right: 0.3rem;
+    }
+    .chat-message { display: flex; flex-direction: column; gap: 0.2rem; }
+    .chat-bubble {
+      padding: 0.45rem 0.7rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .chat-out .chat-bubble { background: rgba(88,166,255,0.2); border-color: rgba(88,166,255,0.4); }
+    .chat-meta { font-size: 0.7rem; color: rgba(234,242,255,0.7); }
+    .chat-form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem;
+      margin-top: 0.6rem;
+    }
+    .chat-form input {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      border-radius: 999px;
+      padding: 0.4rem 0.9rem;
+    }
+    .chat-form button {
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(90deg, #0fb0ff 0%, #4ad4ff 100%);
+      color: #04101f;
+      font-weight: 700;
+      padding: 0.35rem 0.9rem;
+    }
+    .proposal-panel {
+      margin-top: 0.8rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .proposal-card {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.4rem;
+      padding: 0.45rem 0.6rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+    }
+    .proposal-card + .proposal-card { margin-top: 0.5rem; }
+    .proposal-actions { display: flex; gap: 0.4rem; }
+    .proposal-actions button {
+      border-radius: 999px;
+      padding: 0.2rem 0.7rem;
+      font-size: 0.75rem;
+    }
     
     footer .small { color: #e9ecef; }
 
@@ -324,31 +498,53 @@
   </nav>
 
   <main id="main-content" class="container flex-grow-1 py-4" role="main">
-    <div class="row align-items-center justify-content-center" style="min-height:65vh;">
-      <div class="col-12 col-lg-9 col-xl-8">
-        <section class="hero-panel">
-          <div class="floating-orb orb-1"></div>
-          <div class="floating-orb orb-2"></div>
-          <h1 class="hero-heading mb-2">Welcome to PokeVault</h1>
-          <p class="lead lead-cta mb-3">Safe, fast, and built for collectors.</p>
+    <% const userNotificationsList = (typeof userNotifications !== 'undefined' && Array.isArray(userNotifications)) ? userNotifications : []; %>
+    <% const globalNotificationsList = (typeof globalNotifications !== 'undefined' && Array.isArray(globalNotifications)) ? globalNotifications : []; %>
+    <% const openTradesList = (typeof openTrades !== 'undefined' && Array.isArray(openTrades)) ? openTrades : []; %>
+    <% const myTradesList = (typeof myTrades !== 'undefined' && Array.isArray(myTrades)) ? myTrades : []; %>
+    <% const productsList = (typeof products !== 'undefined' && Array.isArray(products)) ? products : []; %>
+    <% const messagesByTrade = (typeof messagesByTradeId !== 'undefined' && messagesByTradeId) ? messagesByTradeId : {}; %>
+    <% const proposalsByTrade = (typeof proposalsByTradeId !== 'undefined' && proposalsByTradeId) ? proposalsByTradeId : {}; %>
+    <% const featuredProducts = productsList.slice(0, 6); %>
+    <% const topDrops = productsList.slice(0, 3); %>
 
-          <div class="d-flex flex-wrap justify-content-center gap-2">
+    <section class="hero-panel hero-stage">
+      <div class="floating-orb orb-1"></div>
+      <div class="floating-orb orb-2"></div>
+      <div class="hero-figures">
+        <img class="hero-figure figure-1" src="/images/charizard_v.png" alt="">
+        <img class="hero-figure figure-2" src="/images/mewtwo_ex.png" alt="">
+        <img class="hero-figure figure-3" src="/images/gardevoir_gx.png" alt="">
+      </div>
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <div class="hero-kicker">PokeVault Singapore</div>
+          <h1 class="hero-title">Sealed Pokemon and TCG products <span class="hero-accent">you can trust</span>.</h1>
+          <p class="hero-lede">From booster boxes to vault-grade singles, every drop is verified, protected, and delivered with collector care.</p>
+          <div class="hero-badges">
+            <span class="hero-badge">100% authentic sourcing</span>
+            <span class="hero-badge">Collector-safe packaging</span>
+            <span class="hero-badge">Live trade rooms</span>
+          </div>
+          <div class="hero-actions">
             <% if (!user) { %>
-              <a class="btn btn-cta" href="/register" role="button" title="Create an account">Create an account</a>
-              <a class="btn btn-ghost" href="/login" role="button" title="Login to your account">Login</a>
+              <a class="btn btn-cta btn-xl" href="/register" role="button" title="Create an account">Create an account</a>
+              <a class="btn btn-ghost btn-xl" href="/login" role="button" title="Login to your account">Login</a>
             <% } else { %>
               <% if (user.role === 'admin') { %>
-                <a class="btn btn-cta" href="/inventory" role="button" title="Go to inventory">Manage Inventory</a>
-                <a class="btn btn-ghost" href="/admin/users" role="button" title="Manage users and orders">Manage Users</a>
-                <a class="btn btn-ghost" href="/admin/audit-log" role="button" title="View all transactions">Audit Log</a>
+                <a class="btn btn-cta btn-xl" href="/inventory" role="button" title="Go to inventory">Manage Inventory</a>
+                <a class="btn btn-ghost btn-xl" href="/admin/users" role="button" title="Manage users and orders">Manage Users</a>
+                <a class="btn btn-ghost btn-xl" href="/admin/audit-log" role="button" title="View all transactions">Audit Log</a>
               <% } else { %>
-                <a class="btn btn-cta" href="/shopping" role="button" title="Browse items">Browse All Items</a>
-                <a class="btn btn-cta" href="/trades" role="button" title="Trade">Trade</a>
-                <a class="btn btn-ghost" href="/orders" role="button" title="View your orders">My Orders</a>
+                <a class="btn btn-cta btn-xl" href="/shopping" role="button" title="Browse items">Browse All Items</a>
+                <a class="btn btn-cta btn-xl" href="/trades" role="button" title="Trade">Trade</a>
+                <a class="btn btn-ghost btn-xl" href="/my-trades" role="button" title="Go to your trades">My Trades</a>
+                <a class="btn btn-ghost btn-xl" href="/trades/all" role="button" title="View all trades">All Trades</a>
+                <a class="btn btn-ghost btn-xl" href="/orders" role="button" title="View your orders">My Orders</a>
               <% } %>
             <% } %>
           </div>
-          <div class="stat-grid">
+          <div class="stat-grid hero-stats">
             <div class="stat-card">
               <div class="stat-value"><%= Number((typeof stats !== 'undefined' && stats && stats.totalTransactions) || (locals.stats && locals.stats.totalTransactions) || 0).toLocaleString() %></div>
               <p class="stat-label mb-0">Total transactions tracked</p>
@@ -362,12 +558,272 @@
               <p class="stat-label mb-0">Total trades</p>
             </div>
           </div>
-          <div class="pikachu-pop">
-            <img src="/images/pikachu.png" alt="Pikachu peeking from the corner">
+        </div>
+        <div class="hero-visual">
+          <div class="vault-card">
+            <div class="vault-glow"></div>
+            <div class="vault-header">
+              <div>
+                <div class="vault-title">Trending Drops</div>
+                <div class="vault-subtitle">Live inventory highlights</div>
+              </div>
+              <span class="vault-tag">Live</span>
+            </div>
+            <div class="vault-items">
+              <% if (topDrops.length) { %>
+                <% topDrops.forEach((drop) => { %>
+                  <div class="vault-item">
+                    <div class="vault-thumb">
+                      <img src="/images/<%= drop.image || 'pikachu_vmax.png' %>" alt="<%= drop.productName || 'Collector drop' %>">
+                    </div>
+                    <div class="vault-meta">
+                      <div class="vault-name"><%= drop.productName || 'Collector drop' %></div>
+                      <div class="vault-price">$<%= Number(drop.price || 0).toFixed(2) %></div>
+                    </div>
+                    <span class="vault-rarity"><%= drop.rarity || 'Hot' %></span>
+                  </div>
+                <% }); %>
+              <% } else { %>
+                <div class="vault-item">
+                  <div class="vault-thumb">
+                    <img src="/images/pikachu_vmax.png" alt="Collector favorite">
+                  </div>
+                  <div class="vault-meta">
+                    <div class="vault-name">Collector favorite</div>
+                    <div class="vault-price">$128.00</div>
+                  </div>
+                  <span class="vault-rarity">Ultra</span>
+                </div>
+                <div class="vault-item">
+                  <div class="vault-thumb">
+                    <img src="/images/eevee_promo.png" alt="Eevee promo">
+                  </div>
+                  <div class="vault-meta">
+                    <div class="vault-name">Eevee promo</div>
+                    <div class="vault-price">$42.00</div>
+                  </div>
+                  <span class="vault-rarity">Rare</span>
+                </div>
+                <div class="vault-item">
+                  <div class="vault-thumb">
+                    <img src="/images/ultra_ball.png" alt="Ultra Ball tin">
+                  </div>
+                  <div class="vault-meta">
+                    <div class="vault-name">Ultra Ball tin</div>
+                    <div class="vault-price">$55.00</div>
+                  </div>
+                  <span class="vault-rarity">Vault</span>
+                </div>
+              <% } %>
+            </div>
+            <div class="vault-footer">
+              <div class="vault-chip">New restock in 03:42</div>
+              <div class="vault-chip">Ships within 24 hours</div>
+            </div>
           </div>
-        </section>
+          <div class="hero-orbit">
+            <img src="/images/snorlax_v.png" alt="Snorlax card">
+            <img src="/images/pikachu2.png" alt="Pikachu card">
+            <img src="/images/fa_fire_energy.png" alt="Fire energy card">
+          </div>
+        </div>
       </div>
-    </div>
+      <div class="pikachu-pop">
+        <img src="/images/pikachu.png" alt="Pikachu peeking from the corner">
+      </div>
+    </section>
+
+    <section class="ticker-band" aria-hidden="true">
+      <div class="ticker-track">
+        <span>Trade.</span>
+        <span>Collect.</span>
+        <span>Authenticate.</span>
+        <span>Vault-Grade.</span>
+        <span>Live Drops.</span>
+        <span>Trade.</span>
+        <span>Collect.</span>
+        <span>Authenticate.</span>
+        <span>Vault-Grade.</span>
+        <span>Live Drops.</span>
+      </div>
+    </section>
+
+    <section class="brand-showcase">
+      <div class="section-head">
+        <p class="section-kicker">Explore the vault</p>
+        <h2 class="section-title">Most beloved brands</h2>
+        <p class="section-subtitle">The big hitters and cult favorites, handpicked for collectors.</p>
+      </div>
+      <div class="brand-grid">
+        <article class="brand-card">
+          <img src="/images/pikachu3.png" alt="Pokemon TCG">
+          <div class="brand-meta">
+            <h3>Pokemon TCG</h3>
+            <p>Booster boxes, ETBs, promos, and sealed collections.</p>
+          </div>
+        </article>
+        <article class="brand-card">
+          <img src="/images/ultra_ball.png" alt="Merch and collectibles">
+          <div class="brand-meta">
+            <h3>Merch and collectibles</h3>
+            <p>Accessories, binders, display cases, and sleeves.</p>
+          </div>
+        </article>
+        <article class="brand-card">
+          <img src="/images/charizard_v.png" alt="Chase singles">
+          <div class="brand-meta">
+            <h3>Chase singles</h3>
+            <p>High-grade singles with verified provenance.</p>
+          </div>
+        </article>
+        <article class="brand-card">
+          <img src="/images/mewtwo_ex.png" alt="Event exclusives">
+          <div class="brand-meta">
+            <h3>Event exclusives</h3>
+            <p>Limited drops, tour promos, and sealed gems.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="feature-band">
+      <div class="section-head">
+        <p class="section-kicker">Built for collectors</p>
+        <h2 class="section-title">Authenticity and speed, every time</h2>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <h3>Vault verification</h3>
+          <p>Every sealed product is verified by our in-house checklist and stored in climate-safe vaulting.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Live trade rooms</h3>
+          <p>Negotiate in real time with trusted users and lock your trades inside protected chats.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Fast sealed shipping</h3>
+          <p>Orders ship within 24 hours with reinforced packaging and tracking to your door.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="product-shelf">
+      <div class="section-head">
+        <p class="section-kicker">Trending now</p>
+        <h2 class="section-title">Vault picks this week</h2>
+        <p class="section-subtitle">Limited runs, fresh pulls, and collector-grade inventory.</p>
+      </div>
+      <div class="product-grid">
+        <% if (featuredProducts.length) { %>
+          <% featuredProducts.forEach((product) => { %>
+            <article class="product-card">
+              <div class="product-thumb">
+                <img src="/images/<%= product.image || 'pikachu_vmax.png' %>" alt="<%= product.productName || 'Vault pick' %>">
+              </div>
+              <div class="product-body">
+                <div class="product-title"><%= product.productName || 'Vault pick' %></div>
+                <div class="product-meta">
+                  <span class="product-price">$<%= Number(product.price || 0).toFixed(2) %></span>
+                  <span class="product-tag"><%= product.rarity || 'Vault' %></span>
+                </div>
+              </div>
+            </article>
+          <% }); %>
+        <% } else { %>
+          <article class="product-card">
+            <div class="product-thumb">
+              <img src="/images/pikachu_vmax.png" alt="Pikachu VMAX">
+            </div>
+            <div class="product-body">
+              <div class="product-title">Pikachu VMAX collection</div>
+              <div class="product-meta">
+                <span class="product-price">$98.00</span>
+                <span class="product-tag">Ultra</span>
+              </div>
+            </div>
+          </article>
+          <article class="product-card">
+            <div class="product-thumb">
+              <img src="/images/snorlax_v.png" alt="Snorlax V">
+            </div>
+            <div class="product-body">
+              <div class="product-title">Snorlax V drop</div>
+              <div class="product-meta">
+                <span class="product-price">$66.00</span>
+                <span class="product-tag">Rare</span>
+              </div>
+            </div>
+          </article>
+          <article class="product-card">
+            <div class="product-thumb">
+              <img src="/images/eevee_promo.png" alt="Eevee promo">
+            </div>
+            <div class="product-body">
+              <div class="product-title">Eevee promo set</div>
+              <div class="product-meta">
+                <span class="product-price">$44.00</span>
+                <span class="product-tag">Promo</span>
+              </div>
+            </div>
+          </article>
+          <article class="product-card">
+            <div class="product-thumb">
+              <img src="/images/ultra_ball.png" alt="Ultra Ball tin">
+            </div>
+            <div class="product-body">
+              <div class="product-title">Ultra Ball tin</div>
+              <div class="product-meta">
+                <span class="product-price">$58.00</span>
+                <span class="product-tag">Tin</span>
+              </div>
+            </div>
+          </article>
+          <article class="product-card">
+            <div class="product-thumb">
+              <img src="/images/mewtwo_ex.png" alt="Mewtwo EX">
+            </div>
+            <div class="product-body">
+              <div class="product-title">Mewtwo EX</div>
+              <div class="product-meta">
+                <span class="product-price">$120.00</span>
+                <span class="product-tag">Legend</span>
+              </div>
+            </div>
+          </article>
+          <article class="product-card">
+            <div class="product-thumb">
+              <img src="/images/charizard_v.png" alt="Charizard V">
+            </div>
+            <div class="product-body">
+              <div class="product-title">Charizard V</div>
+              <div class="product-meta">
+                <span class="product-price">$180.00</span>
+                <span class="product-tag">Chase</span>
+              </div>
+            </div>
+          </article>
+        <% } %>
+      </div>
+    </section>
+
+    <section class="cta-portal">
+      <div class="cta-card">
+        <div>
+          <p class="section-kicker">Ready to level up</p>
+          <h2 class="section-title">Build your vault with a trusted community</h2>
+          <p class="section-subtitle">Trade, shop, and connect with collectors across the globe in one secure hub.</p>
+        </div>
+        <div class="cta-actions">
+          <% if (!user) { %>
+            <a class="btn btn-cta btn-xl" href="/register" role="button">Join the vault</a>
+            <a class="btn btn-ghost btn-xl" href="/shopping" role="button">Browse inventory</a>
+          <% } else { %>
+            <a class="btn btn-cta btn-xl" href="/shopping" role="button">Shop inventory</a>
+            <a class="btn btn-ghost btn-xl" href="/trades" role="button">Open a trade</a>
+          <% } %>
+        </div>
+      </div>
+    </section>
   </main>
   <footer class="site-footer mt-auto">
   <div class="container text-center">
@@ -388,6 +844,136 @@
       setTimeout(() => toast.remove(), 3200);
     }
     messages.forEach(showToast);
+  })();
+
+  (function() {
+    const user = <%- JSON.stringify(user ? { id: user.id, username: user.username } : null) %>;
+    if (!user) return;
+    const tradeIds = <%- JSON.stringify((myTradesList || []).filter(t => t.status === 'accepted').map(t => t.id)) %>;
+    const socket = io();
+    socket.emit('join', { userId: user.id, tradeIds });
+
+    const userList = document.getElementById('user-notifications');
+    const globalList = document.getElementById('global-notifications');
+    const formatTime = (value) => new Date(value).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
+
+    function prependNotification(container, message, time) {
+      if (!container) return;
+      const item = document.createElement('div');
+      item.className = 'notification-item';
+      item.innerHTML = `<div class="fw-semibold">${message}</div><div class="notification-meta">${formatTime(time)}</div>`;
+      container.prepend(item);
+    }
+
+    socket.on('notification:user', (n) => prependNotification(userList, n.message, n.created_at || new Date().toISOString()));
+    socket.on('notification:global', (n) => prependNotification(globalList, n.message, n.created_at || new Date().toISOString()));
+
+    socket.on('trade:message', (msg) => {
+      const container = document.getElementById(`chat-messages-${msg.trade_id}`);
+      if (!container) return;
+      const wrap = document.createElement('div');
+      wrap.className = `chat-message ${msg.sender_id === user.id ? 'chat-out' : 'chat-in'}`;
+      wrap.innerHTML = `<div class="chat-meta">${msg.senderUsername || 'User'} · ${formatTime(msg.created_at || new Date().toISOString())}</div><div class="chat-bubble"></div>`;
+      wrap.querySelector('.chat-bubble').textContent = msg.message;
+      container.appendChild(wrap);
+      container.scrollTop = container.scrollHeight;
+    });
+
+    socket.on('meeting:proposed', (proposal) => {
+      const list = document.getElementById(`proposal-list-${proposal.trade_id}`);
+      if (!list) return;
+      const card = document.createElement('div');
+      card.className = 'proposal-card';
+      card.dataset.proposalId = proposal.id;
+      const actions = proposal.proposer_id !== user.id
+        ? `<div class="proposal-actions">
+            <button type="button" class="btn btn-success btn-sm proposal-action" data-action="accepted" data-trade-id="${proposal.trade_id}" data-proposal-id="${proposal.id}">Accept</button>
+            <button type="button" class="btn btn-outline-danger btn-sm proposal-action" data-action="declined" data-trade-id="${proposal.trade_id}" data-proposal-id="${proposal.id}">Decline</button>
+          </div>`
+        : '';
+      card.innerHTML = `
+        <div>
+          <div class="fw-semibold">${formatTime(proposal.proposed_at)}</div>
+          <div class="notification-meta">Proposed by ${proposal.proposerUsername || 'User'} · proposed</div>
+        </div>
+        ${actions}
+      `;
+      list.appendChild(card);
+    });
+
+    socket.on('meeting:responded', (payload) => {
+      const list = document.getElementById(`proposal-list-${payload.trade_id}`);
+      if (!list) return;
+      const card = list.querySelector(`[data-proposal-id="${payload.id}"]`);
+      if (!card) return;
+      const meta = card.querySelector('.notification-meta');
+      if (meta) meta.textContent = `Updated · ${payload.status}`;
+      const actions = card.querySelector('.proposal-actions');
+      if (actions) actions.remove();
+    });
+
+    document.querySelectorAll('.chat-form').forEach((form) => {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const tradeId = form.dataset.tradeId;
+        const input = form.querySelector('input[name="message"]');
+        const message = input ? input.value.trim() : '';
+        if (!message) return;
+        const body = new URLSearchParams({ message });
+        try {
+          const res = await fetch(`/trades/${tradeId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+          });
+          if (!res.ok) throw new Error('Message failed');
+          if (input) input.value = '';
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    });
+
+    document.querySelectorAll('.proposal-form').forEach((form) => {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const tradeId = form.dataset.tradeId;
+        const input = form.querySelector('input[name="proposedAt"]');
+        const proposedAt = input ? input.value : '';
+        if (!proposedAt) return;
+        const body = new URLSearchParams({ proposedAt });
+        try {
+          const res = await fetch(`/trades/${tradeId}/meeting-proposals`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+          });
+          if (!res.ok) throw new Error('Proposal failed');
+          if (input) input.value = '';
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    });
+
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.proposal-action');
+      if (!btn) return;
+      const tradeId = btn.dataset.tradeId;
+      const proposalId = btn.dataset.proposalId;
+      const action = btn.dataset.action;
+      const body = new URLSearchParams({ action });
+      try {
+        const res = await fetch(`/trades/${tradeId}/meeting-proposals/${proposalId}/respond`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body
+        });
+        if (!res.ok) throw new Error('Response failed');
+      } catch (err) {
+        console.error(err);
+      }
+    });
   })();
 </script>
 </body>

@@ -1,9 +1,15 @@
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+
+const hashPassword = async (plain) => bcrypt.hash(plain, 10);
+const sha1 = (plain) => crypto.createHash('sha1').update(plain).digest('hex');
+
 const UserController = {
   registerForm(req, res) {
     res.render('register', { messages: req.flash('error'), formData: req.flash('formData')[0] });
   },
 
-  register(req, res) {
+  async register(req, res) {
     const db = require('../db');
     const { username, email, password, address, contact, pdpaAccepted } = req.body;
     const role = 'user';
@@ -24,8 +30,9 @@ const UserController = {
       return res.redirect('/register');
     }
 
-    const sql = 'INSERT INTO users (username, email, password, address, contact, role) VALUES (?, ?, SHA1(?), ?, ?, ?)';
-    db.query(sql, [username, email, password, address, contact, role], (err, result) => {
+    const passwordHash = await hashPassword(password);
+    const sql = 'INSERT INTO users (username, email, password, address, contact, role) VALUES (?, ?, ?, ?, ?, ?)';
+    db.query(sql, [username, email, passwordHash, address, contact, role], (err, result) => {
       if (err) {
         console.error('Error registering user:', err);
         req.flash('error', 'Registration failed. Try again.');
@@ -49,8 +56,8 @@ const UserController = {
       return res.redirect('/login');
     }
 
-    const sql = 'SELECT * FROM users WHERE email = ? AND password = SHA1(?)';
-    db.query(sql, [email, password], (err, results) => {
+    const sql = 'SELECT * FROM users WHERE email = ? LIMIT 1';
+    db.query(sql, [email], async (err, results) => {
       if (err) {
         console.error('Error logging in:', err);
         req.flash('error', 'Login failed.');
@@ -61,10 +68,32 @@ const UserController = {
         return res.redirect('/login');
       }
 
-      req.session.user = results[0];
+      const user = results[0];
+      let valid = false;
+      if (user.password && user.password.startsWith('$2')) {
+        valid = await bcrypt.compare(password, user.password);
+      } else {
+        valid = sha1(password) === user.password;
+        if (valid) {
+          try {
+            const newHash = await hashPassword(password);
+            db.query('UPDATE users SET password = ? WHERE id = ?', [newHash, user.id], () => {});
+          } catch (hashErr) {
+            console.warn('Could not upgrade password hash:', hashErr);
+          }
+        }
+      }
+
+      if (!valid) {
+        req.flash('error', 'Invalid email or password.');
+        return res.redirect('/login');
+      }
+
+      req.session.user = user;
       req.flash('success', `Welcome back, ${req.session.user.username}!`);
-      // Always land on homepage after login (admin redirects to dashboard there)
-      return res.redirect('/');
+      if (user.role === 'admin') return res.redirect('/admin/dashboard');
+      if (user.role === 'storekeeper') return res.redirect('/storekeeper/dashboard');
+      return res.redirect('/shopping');
     });
   },
 

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/theme.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <title>Trades</title>
+  <style>
+    body {
+      background: #0b0c0f;
+      color: #e9ecef;
+      font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    .page-shell { padding-top: 2rem; padding-bottom: 2rem; }
+    .glass-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 1rem;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.5);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 32px;
+      border-radius: 999px;
+      padding: 0.2rem 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .pill-open { background: rgba(59,130,246,0.18); color: #bfdbfe; border: 1px solid rgba(59,130,246,0.4); }
+    .pill-pending_initiator { background: rgba(234,179,8,0.16); color: #fde68a; border: 1px solid rgba(234,179,8,0.4); }
+    .pill-accepted { background: rgba(16,185,129,0.18); color: #a7f3d0; border: 1px solid rgba(16,185,129,0.45); }
+    .pill-declined { background: rgba(239,68,68,0.16); color: #fecdd3; border: 1px solid rgba(239,68,68,0.45); }
+    .pill-cancelled { background: rgba(107,114,128,0.16); color: #e5e7eb; border: 1px solid rgba(107,114,128,0.45); }
+    .section-title { letter-spacing: 0.02em; }
+    .btn-ghost {
+      border-radius: 999px;
+      border: 1px solid rgba(74,212,255,0.5);
+      color: #d5f3ff;
+      background: rgba(74,212,255,0.08);
+    }
+    .btn-ghost:hover { color: #fff; border-color: rgba(74,212,255,0.7); background: rgba(74,212,255,0.14); }
+    .form-select, .form-control { background: rgba(255,255,255,0.04); color: #e9ecef; border: 1px solid rgba(255,255,255,0.12); }
+    .form-select:focus, .form-control:focus { box-shadow: 0 0 0 0.15rem rgba(74,212,255,0.25); border-color: rgba(74,212,255,0.5); }
+    .form-select option { background: #0b0c0f; color: #e9ecef; }
+    .form-control::placeholder { color: rgba(233,236,239,0.95); }
+    .custom-navbar {
+      background-color: transparent !important;
+      padding-top: 1.05rem;
+      padding-bottom: 1.05rem;
+      min-height: 80px;
+      z-index: 1030;
+      box-shadow: none;
+    }
+    .btn-glow {
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(90deg, #0fb0ff 0%, #4ad4ff 100%);
+      color: #ffffff;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      box-shadow: 0 10px 28px rgba(15,176,255,0.35);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn-glow:hover {
+      transform: translateY(-1px);
+      color: #000000;
+      box-shadow: 0 14px 32px rgba(15,176,255,0.42);
+    }
+    .brand-logo {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      display: inline-flex;
+      flex-direction: column;
+      text-align: center;
+      text-decoration: none;
+      line-height: 1.05;
+      padding-left: 0.1rem;
+    }
+    .brand-main {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: 0.33em;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+    .brand-sub {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.75);
+      margin-top: 0.15rem;
+    }
+  </style>
+</head>
+<body class="theme-gradient d-flex flex-column min-vh-100">
+  <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
+    <div class="container-fluid" role="navigation" aria-label="Main navigation">
+      <a class="navbar-brand brand-logo" href="/">
+        <span class="brand-main">PokeVault</span>
+        <span class="brand-sub">SINGAPORE</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar" aria-controls="collapsibleNavbar" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="collapsibleNavbar">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item d-flex align-items-center me-3">
+            <span class="text-light small">Signed in as <strong><%= user.username %></strong></span>
+          </li>
+          <li class="nav-item me-2">
+            <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/" title="Home">Home</a>
+          </li>
+          <li class="nav-item me-2">
+            <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/orders">My Orders</a>
+          </li>
+          <li class="nav-item me-2">
+            <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/shopping">Shop</a>
+          </li>
+          <li class="nav-item me-2">
+            <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/cart">View Cart</a>
+          </li>
+          <li class="nav-item">
+            <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/logout" role="button" title="Sign out">Logout</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container page-shell flex-grow-1">
+    <% if (errors && errors.length) { %>
+      <div class="alert alert-danger">
+        <% errors.forEach(err => { %>
+          <div><%= err %></div>
+        <% }); %>
+      </div>
+    <% } %>
+    <% if (messages && messages.length) { %>
+      <div class="alert alert-success">
+        <% messages.forEach(msg => { %>
+          <div><%= msg %></div>
+        <% }); %>
+      </div>
+    <% } %>
+
+    <div class="row g-4">
+      <div class="col-12">
+        <div class="glass-card p-4">
+          <div class="d-flex justify-content-between flex-wrap gap-2 align-items-center mb-3">
+            <div>
+              <div class="text-uppercase text-white-50 small fw-semibold">Start a trade</div>
+              <h5 class="mb-0 section-title">Offer your card</h5>
+            </div>
+          </div>
+          <form action="/trades" method="POST" class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label text-white-50">Card you are offering</label>
+              <select class="form-select" name="productId" required>
+                <option value="">Select a card</option>
+                <% products.forEach(p => { %>
+                  <option value="<%= p.id %>"><%= p.productName %></option>
+                <% }); %>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-white-50">Note (optional)</label>
+              <input class="form-control" name="note" maxlength="255" placeholder="Add details or conditions">
+            </div>
+            <div class="col-12 d-flex justify-content-end">
+              <button type="submit" class="btn btn-glow">Post trade</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="glass-card p-4 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="section-title mb-0">Open trades from others</h6>
+            <span class="badge text-bg-secondary"><%= openTrades.length %></span>
+          </div>
+          <% if (openTrades.length === 0) { %>
+            <p class="text-white-50 mb-0">No open trades right now.</p>
+          <% } else { %>
+            <div class="vstack gap-3">
+              <% openTrades.forEach(t => { %>
+                <div class="p-3 rounded border border-1 border-secondary-subtle">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                      <div class="fw-semibold"><%= t.initiatorProductName || 'Card #' + t.initiator_product_id %></div>
+                      <small class="text-white-50">Offered by <%= t.initiatorUsername || ('user #' + t.initiator_id) %></small>
+                    </div>
+                    <span class="pill pill-<%= t.status %> text-uppercase small"><%= t.status.replace('_', ' ') %></span>
+                  </div>
+                  <form action="/trades/<%= t.id %>/offer" method="POST" class="row g-2 align-items-end">
+                    <div class="col-12 col-md-6">
+                      <label class="form-label text-white-50">Offer your card</label>
+                      <select class="form-select form-select-sm" name="productId" required>
+                        <option value="">Select</option>
+                        <% products.forEach(p => { %>
+                          <option value="<%= p.id %>"><%= p.productName %></option>
+                        <% }); %>
+                      </select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                      <label class="form-label text-white-50">Note (optional)</label>
+                      <input class="form-control form-control-sm" name="note" maxlength="255" placeholder="Message">
+                    </div>
+                    <div class="col-12 col-md-2 d-grid">
+                      <button type="submit" class="btn btn-ghost btn-sm">Offer</button>
+                    </div>
+                  </form>
+                </div>
+              <% }); %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="glass-card p-4 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="section-title mb-0">Your trades & offers</h6>
+            <span class="badge text-bg-secondary"><%= myTrades.length %></span>
+          </div>
+          <% if (myTrades.length === 0) { %>
+            <p class="text-white-50 mb-0">You have no trades yet.</p>
+          <% } else { %>
+            <div class="vstack gap-3">
+              <% myTrades.forEach(t => { %>
+                <% const isOwner = t.initiator_id === user.id; %>
+                <% const isResponder = t.responder_id === user.id; %>
+                <% const ownerCard = t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
+                <% const responderCard = t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null; %>
+                <% const ownerLabel = isOwner ? 'You' : (t.initiatorUsername || ('User #' + t.initiator_id)); %>
+                <% const responderLabel = isResponder ? 'You' : (t.responderUsername || (t.responder_id ? ('User #' + t.responder_id) : '')); %>
+                <div class="p-3 rounded border border-1 border-secondary-subtle">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <% if (isOwner) { %>
+                        <div class="fw-semibold">You offered: <%= ownerCard %></div>
+                        <% if (responderCard) { %>
+                          <div class="text-white-50 small"><%= responderLabel || 'They' %> offered: <%= responderCard %></div>
+                        <% } else { %>
+                          <div class="text-white-50 small">Awaiting an offer.</div>
+                        <% } %>
+                      <% } else { %>
+                        <div class="fw-semibold"><%= ownerLabel %> offered: <%= ownerCard %></div>
+                        <% if (responderCard) { %>
+                          <div class="text-white-50 small"><%= responderLabel %> offered: <%= responderCard %></div>
+                        <% } else { %>
+                          <div class="text-white-50 small">You offered this card.</div>
+                        <% } %>
+                      <% } %>
+                    </div>
+                    <span class="pill pill-<%= t.status %> text-uppercase small"><%= t.status.replace('_', ' ') %></span>
+                  </div>
+                  <% if (t.status === 'pending_initiator' && t.responder_id && isOwner) { %>
+                    <div class="d-flex gap-2 mt-2">
+                      <form action="/trades/<%= t.id %>/accept" method="POST">
+                        <button type="submit" class="btn btn-success btn-sm">Accept</button>
+                      </form>
+                      <form action="/trades/<%= t.id %>/decline" method="POST">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">Decline</button>
+                      </form>
+                    </div>
+                  <% } %>
+                  <% if (isOwner && (t.status === 'open' || t.status === 'pending_initiator')) { %>
+                    <div class="mt-2">
+                      <form action="/trades/<%= t.id %>/cancel" method="POST">
+                        <button type="submit" class="btn btn-outline-light btn-sm">Cancel trade</button>
+                      </form>
+                    </div>
+                  <% } %>
+                </div>
+              <% }); %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer class="site-footer mt-auto">
+    <div class="container text-center">
+      <p class="mb-1">Connecting Pokemon card collectors worldwide - shop, sell, and trade in a safe and growing community.</p>
+      <small class="small">© <%= new Date().getFullYear() %> PokeVault. All rights reserved.</small>
+    </div>
+  </footer>
+</body>
+</html>

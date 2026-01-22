@@ -1,19 +1,19 @@
 const express = require('express');
 const AdminController = require('../controllers/AdminController');
-const { checkAuthenticated, checkAdmin } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/admin/users', checkAuthenticated, checkAdmin, AdminController.listUsers);
-router.get('/admin/users/:id/orders', checkAuthenticated, checkAdmin, AdminController.userOrders);
-router.get('/admin/users/add', checkAuthenticated, checkAdmin, AdminController.addUserForm);
-router.post('/admin/users/add', checkAuthenticated, checkAdmin, AdminController.addUser);
-router.get('/admin/users/:id/edit', checkAuthenticated, checkAdmin, AdminController.editUserForm);
-router.post('/admin/users/:id/edit', checkAuthenticated, checkAdmin, AdminController.editUser);
-router.post('/admin/users/:id/delete', checkAuthenticated, checkAdmin, AdminController.deleteUser);
-router.get('/admin/users/:id/delete', checkAuthenticated, checkAdmin, AdminController.deleteUser);
-router.get('/admin/audit-log', checkAuthenticated, checkAdmin, AdminController.auditLog);
-router.get('/admin/trades', checkAuthenticated, checkAdmin, AdminController.trades);
-router.get('/admin/dashboard', checkAuthenticated, checkAdmin, AdminController.dashboard);
+router.get('/admin/users', requireAuth, requireRole('admin'), AdminController.listUsers);
+router.get('/admin/users/:id/orders', requireAuth, requireRole('admin'), AdminController.userOrders);
+router.get('/admin/users/add', requireAuth, requireRole('admin'), AdminController.addUserForm);
+router.post('/admin/users/add', requireAuth, requireRole('admin'), AdminController.addUser);
+router.get('/admin/users/:id/edit', requireAuth, requireRole('admin'), AdminController.editUserForm);
+router.post('/admin/users/:id/edit', requireAuth, requireRole('admin'), AdminController.editUser);
+router.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), AdminController.deleteUser);
+router.get('/admin/users/:id/delete', requireAuth, requireRole('admin'), AdminController.deleteUser);
+router.get('/admin/audit-log', requireAuth, requireRole('admin'), AdminController.auditLog);
+router.get('/admin/trades', requireAuth, requireRole('admin'), AdminController.trades);
+router.get('/admin/dashboard', requireAuth, requireRole('admin'), AdminController.dashboard);
 
 module.exports = router;

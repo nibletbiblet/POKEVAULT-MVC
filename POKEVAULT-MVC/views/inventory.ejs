@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Google Font: Montserrat (Gotham-like) -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="/theme.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <title>Supermarket App - Inventory</title>
+  <style>
+    /* Keep layout consistent with index.ejs */
+    body {
+background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      background-color: #111213;
+      color: #fff;
+      font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      pointer-events: none;
+      z-index: -1;
+    }
+    .custom-navbar {
+      background-color: transparent !important;
+      padding-top: 1.05rem;
+      padding-bottom: 1.05rem;
+      min-height: 80px;
+      z-index: 1030;
+      box-shadow: none;
+    }
+    .custom-navbar .navbar-brand { font-weight:700; letter-spacing: -0.01em; }
+
+    .inventory-grid {
+      margin-top: 1.5rem;
+    }
+    .inventory-actions {
+      margin-top: 1rem;
+    }
+    .search-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 999px;
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      padding: 0.65rem 1rem;
+      color: #fff;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+    }
+    .search-box::placeholder { color: rgba(255,255,255,0.6); }
+    .search-wrap { position: relative; }
+    .filter-wrap { position: relative; }
+    .filter-select {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      padding: 0.65rem 1rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      appearance: none;
+      background-image:
+        linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+        url("data:image/svg+xml,%3Csvg width='18' height='12' viewBox='0 0 18 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4l7 7 7-7' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat, no-repeat;
+      background-position: 0 0, calc(100% - 0.9rem) center;
+      background-size: auto, 18px 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    }
+    .filter-select:focus {
+      border-color: rgba(255,255,255,0.28);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.14);
+    }
+    .filter-select option {
+      background: #0f1011;
+      color: #fff;
+    }
+    .rarity-pill, .rating-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      border-radius: 999px;
+      padding: 0.24rem 0.7rem;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      line-height: 1.15;
+    }
+    .rarity-common { background: linear-gradient(120deg, #4b5563 0%, #6b7280 100%); }
+    .rarity-uncommon { background: linear-gradient(120deg, #0ea5e9 0%, #38bdf8 100%); }
+    .rarity-rare { background: linear-gradient(120deg, #6366f1 0%, #8b5cf6 100%); }
+    .rarity-ultra-rare { background: linear-gradient(120deg, #f97316 0%, #fb7185 100%); }
+    .rarity-secret-rare { background: linear-gradient(120deg, #f59e0b 0%, #fbbf24 100%); color: #1f2937; }
+    .product-card {
+      position: relative;
+      background: radial-gradient(140% 160% at 12% 16%, rgba(255,255,255,0.08), rgba(255,255,255,0)) ,
+                  rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 1rem;
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 20px 48px rgba(0,0,0,0.45);
+      transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+      overflow: hidden;
+    }
+    .product-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0));
+      pointer-events: none;
+    }
+    .low-stock-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(220,53,69,0.16);
+      color: #f8d7da;
+      border: 1px solid rgba(220,53,69,0.5);
+      border-radius: 999px;
+      padding: 0.25rem 0.6rem;
+      font-weight: 700;
+      font-size: 0.75rem;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .product-card.low-stock {
+      border-color: rgba(220,53,69,0.65);
+      box-shadow: 0 12px 32px rgba(220,53,69,0.25);
+    }
+    .product-card:hover {
+      transform: translateY(-6px);
+      border-color: rgba(255,255,255,0.16);
+      box-shadow: 0 26px 64px rgba(0,0,0,0.55);
+    }
+    .product-thumb {
+      width: 90px;
+      height: 90px;
+      object-fit: cover;
+      border-radius: 0.75rem;
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.45);
+    }
+    .product-name {
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+      text-decoration: none;
+    }
+    .product-name:hover { color: #f8f9fa; }
+    .product-price {
+      color: #ffffff;
+      font-weight: 800;
+      margin-top: 0.35rem;
+      letter-spacing: -0.01em;
+    }
+    .product-meta {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.75);
+    }
+    .badge-quantity {
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      border-radius: 999px;
+      padding: 0.35rem 0.65rem;
+    }
+    .pill-stack { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.25rem; }
+    .badge-quantity.low {
+      background: rgba(220,53,69,0.16);
+      border: 1px solid rgba(220,53,69,0.4);
+      color: #f8d7da;
+    }
+    .card-actions .btn {
+      flex: 1 1 auto;
+    }
+
+    .brand-logo {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      display: inline-flex;
+      flex-direction: column;
+      text-align: center;
+      text-decoration: none;
+      line-height: 1.05;
+      padding-left: 0.1rem;
+    }
+
+    .brand-main {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: 0.33em;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+
+    .brand-sub {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.75);
+      margin-top: 0.15rem;
+    }
+    footer .small { color: #e9ecef; }
+
+    /* Large, dark footer */
+    footer.site-footer {
+      background: #0b0c0d;
+      color: #fff;
+      padding-top: 2.5rem;
+      padding-bottom: 2.5rem;
+      margin-top: 0;
+      border-top: 1px solid rgba(255,255,255,0.03);
+      z-index: 1025;
+    }
+    a, .nav-link { color: rgba(255,255,255,0.95); }
+
+    /* Toast notification styles (reused across pages) */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 2000;
+    }
+    .toast-notification {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      color: #000000;
+      padding: 1rem 1.5rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      margin-bottom: 0.75rem;
+      animation: slideIn 300ms ease-out, slideOut 300ms ease-out 2700ms forwards;
+      border: 1px solid rgba(255,255,255,0.1);
+      font-weight: 500;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(400px); opacity: 0; }
+    }
+  </style>
+</head>
+<body class="theme-gradient d-flex flex-column min-vh-100">
+  <div class="toast-container" id="toastContainer"></div>
+  <a class="visually-hidden-focusable" href="#main-content">Skip to main content</a>
+  <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
+    <div class="container-fluid" role="navigation" aria-label="Main navigation">
+      <a class="navbar-brand brand-logo" href="/">
+        <span class="brand-main">PokeVault</span>
+        <span class="brand-sub">SINGAPORE</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar" aria-controls="collapsibleNavbar" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+        <ul class="navbar-nav ms-auto">
+          <% if (!user) { %>
+            <li class="nav-item me-2">
+              <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/register" role="button" title="Create an account">Register</a>
+            </li>
+            <li class="nav-item">
+              <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/login" role="button" title="Sign in to your account">Login</a>
+            </li>
+          <% } else { %>
+            <li class="nav-item d-flex align-items-center me-3">
+              <span class="text-light small">Signed in as <strong><%= user.username %></strong></span>
+            </li>
+            <li class="nav-item">
+              <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/">Home</a>
+            </li>
+            <li class="nav-item ms-2">
+              <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/addProduct">Add Product</a>
+            </li> 
+            <li class="nav-item ms-2">
+              <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/logout" role="button" title="Sign out">Logout</a>
+            </li>
+          <% } %>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main id="main-content" class="container flex-grow-1 py-4 page-shell" role="main">
+
+    <% const lowStockList = (typeof lowStockProducts !== 'undefined' && Array.isArray(lowStockProducts)) ? lowStockProducts : []; %>
+    <% const lowStockLimit = (typeof lowStockThreshold !== 'undefined' && !isNaN(Number(lowStockThreshold))) ? Number(lowStockThreshold) : 10; %>
+
+    <% if (lowStockList && lowStockList.length) { %>
+      <div class="alert alert-warning d-flex justify-content-between align-items-center">
+        <div>
+          <strong><%= lowStockList.length %></strong> product(s) are at or below <%= lowStockLimit %> in stock.
+        </div>
+        <small class="text-muted">Restock soon to avoid stockouts.</small>
+      </div>
+    <% } %>
+
+    <div class="inventory-actions mb-3">
+      <div class="row g-2 align-items-center">
+        <div class="col-12 col-md-6 col-lg-4">
+          <input id="productSearch" type="search" class="form-control form-control-sm search-box" placeholder="Search products..." aria-label="Search products">
+        </div>
+        <div class="col-12 col-md-3 col-lg-3">
+          <select id="rarityFilter" class="form-select form-select-sm filter-select" aria-label="Filter by rarity">
+            <option value="">All rarities</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-3 col-lg-3">
+          <select id="sortSelect" class="form-select form-select-sm filter-select" aria-label="Sort products">
+            <option value="">Sort: Recommended</option>
+            <option value="price-asc">Price: Ascending</option>
+            <option value="price-desc">Price: Decending</option>
+            <option value="rating-desc">Rating: Decending</option>
+            <option value="rating-asc">Rating: Ascending</option>
+            <option value="best">Best Selling</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="inventory-grid">
+      <div class="row g-3 g-md-4">
+        <% if (products && products.length) { %>
+          <% const statsMap = (typeof reviewStatsMap !== 'undefined' && reviewStatsMap) ? reviewStatsMap : {}; %>
+          <% for(let i=0; i < products.length; i++) { %>
+            <% const stock = Number(products[i].quantity) || 0; %>
+            <% const isOut = stock <= 0; %>
+            <% const isLow = !isOut && stock <= (lowStockLimit || 0); %>
+            <% const stat = statsMap[products[i].id] || { avg: 0, count: 0 }; %>
+            <% const discountPct = products[i].discountPercent; %>
+            <% const hasDiscount = discountPct !== null && discountPct !== undefined && Number(discountPct) > 0; %>
+            <% const effectivePrice = hasDiscount ? Number(products[i].price) * (1 - Number(discountPct)/100) : Number(products[i].price); %>
+            <div class="col-12 col-sm-6 col-lg-4 col-xl-3 product-card-wrapper" data-search="<%= (products[i].productName + ' ' + (products[i].rarity || '')).toLowerCase() %>" data-rarity="<%= (products[i].rarity || '').toLowerCase() %>">
+              <article class="product-card h-100 d-flex flex-column p-3 <%= (isLow || isOut) ? 'low-stock' : '' %>"
+                data-price="<%= effectivePrice %>"
+                data-rating="<%= stat.avg || 0 %>"
+                data-sales="<%= stat.count || 0 %>">
+                <div class="d-flex align-items-start mb-3">
+                  <img class="product-thumb me-3" src="/images/<%= products[i].image %>" alt="<%= products[i].productName %>" />
+                  <div>
+                    <a class="product-name d-block" href="/product/<%= products[i].id %>"><%= products[i].productName %></a>
+                    <div class="product-meta">ID: <%= products[i].id %></div>
+                    <div class="pill-stack">
+                      <% if (products[i].rarity) { const rarityClass = (products[i].rarity || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'); %>
+                        <span class="rarity-pill rarity-<%= rarityClass %>"><%= products[i].rarity %></span>
+                      <% } %>
+                      <span class="rating-pill">★ <%= Number(stat.avg || 0).toFixed(1) %> (<%= stat.count || 0 %>)</span>
+                    </div>
+                    <% if (isOut || isLow) { %>
+                      <div class="mt-1">
+                        <span class="low-stock-pill"><%= isOut ? 'Out of stock' : 'Low stock' %></span>
+                      </div>
+                    <% } %>
+                    <div class="product-price">
+                      <% if (hasDiscount) { %>
+                        <span style="text-decoration: line-through; color: #ff6b6b; font-size:0.9rem;">$<%= Number(products[i].price).toFixed(2) %></span>
+                        <span class="ms-2">$<%= effectivePrice.toFixed(2) %></span>
+                      <% } else { %>
+                        $<%= Number(products[i].price).toFixed(2) %>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <span class="text-uppercase fw-semibold text-white-50 small">Quantity</span>
+                  <span class="badge-quantity <%= (isLow || isOut) ? 'low' : '' %>"><%= stock %></span>
+                </div>
+                <div class="card-actions mt-auto d-flex gap-2">
+                  <a class="btn btn-outline-light btn-sm" href="/updateProduct/<%= products[i].id %>">Edit</a>
+                  <a class="btn btn-danger btn-sm fw-semibold shadow-sm delete-product" href="/deleteProduct/<%= products[i].id %>" data-name="<%= products[i].productName %>" data-id="<%= products[i].id %>">Delete</a>
+                </div>
+              </article>
+            </div>
+          <% } %>
+        <% } else { %>
+          <div class="col-12">
+            <div class="text-center text-white-50 py-5">
+              <p class="mb-1 fw-semibold">No products found</p>
+              <small class="text-white-50">Add your first item to populate the inventory.</small>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Client-side filter and sort for product cards by name/rarity/rating/price
+    (function() {
+      const searchInput = document.getElementById('productSearch');
+      const categorySelect = document.getElementById('rarityFilter');
+      const sortSelect = document.getElementById('sortSelect');
+      if (!searchInput || !categorySelect) return;
+
+      const cards = Array.from(document.querySelectorAll('.product-card-wrapper'));
+      const gridRow = document.querySelector('.inventory-grid .row');
+
+      // Build rarity options dynamically from rendered cards
+      const categories = new Set();
+      cards.forEach(card => {
+        const cat = (card.dataset.rarity || '').trim();
+        if (cat) categories.add(cat);
+      });
+      Array.from(categories).sort().forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+        categorySelect.appendChild(opt);
+      });
+
+      function applyFilterAndSort() {
+        const term = searchInput.value.trim().toLowerCase();
+        const cat = categorySelect.value.trim();
+        const visible = [];
+        cards.forEach(card => {
+          const termSpace = card.dataset.search || '';
+          const cardCat = card.dataset.rarity || '';
+          const matchesTerm = termSpace.includes(term);
+          const matchesCategory = !cat || cardCat === cat;
+          const show = matchesTerm && matchesCategory;
+          card.style.display = show ? '' : 'none';
+          if (show) visible.push(card);
+        });
+
+        if (sortSelect && gridRow) {
+          const sortVal = sortSelect.value;
+          visible.sort((a, b) => {
+            const priceA = Number(a.querySelector('.product-card').dataset.price || 0);
+            const priceB = Number(b.querySelector('.product-card').dataset.price || 0);
+            const ratingA = Number(a.querySelector('.product-card').dataset.rating || 0);
+            const ratingB = Number(b.querySelector('.product-card').dataset.rating || 0);
+            const salesA = Number(a.querySelector('.product-card').dataset.sales || 0);
+            const salesB = Number(b.querySelector('.product-card').dataset.sales || 0);
+            switch (sortVal) {
+              case 'price-asc': return priceA - priceB;
+              case 'price-desc': return priceB - priceA;
+              case 'rating-desc': return ratingB - ratingA;
+              case 'rating-asc': return ratingA - ratingB;
+              case 'best':
+                if (salesB !== salesA) return salesB - salesA;
+                return ratingB - ratingA;
+              default: return 0;
+            }
+          });
+          visible.forEach(card => gridRow.appendChild(card));
+        }
+      }
+
+      searchInput.addEventListener('input', applyFilterAndSort);
+      categorySelect.addEventListener('change', applyFilterAndSort);
+      if (sortSelect) sortSelect.addEventListener('change', applyFilterAndSort);
+
+      applyFilterAndSort();
+    })();
+
+    // Toast helper
+    function showToast(message) {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'toast-notification';
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3200);
+    }
+
+    // Intercept delete links to show toast and refresh after success
+    (function() {
+      const links = Array.from(document.querySelectorAll('.delete-product'));
+      if (!links.length) return;
+      links.forEach(link => {
+        link.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const name = link.dataset.name || 'this product';
+          if (!confirm(`Are you sure you want to delete ${name}?`)) return;
+          try {
+            const res = await fetch(link.href, { method: 'GET' });
+            if (!res.ok) throw new Error('Delete failed');
+            showToast(`${name} deleted`);
+            setTimeout(() => window.location.reload(), 600);
+          } catch (err) {
+            console.error(err);
+            showToast('Could not delete product. Please try again.');
+          }
+        });
+      });
+    })();
+  </script>  <footer class="site-footer mt-auto">
+  <div class="container text-center">
+    <p class="mb-1">Connecting Pokémon card collectors worldwide — shop, sell, and trade in a safe and growing community.</p>
+    <small class="small">© <%= new Date().getFullYear() %> PokéVault. All rights reserved.</small>
+  </div>
+</footer>
+</body>
+</html>

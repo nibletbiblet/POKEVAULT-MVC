@@ -2,6 +2,8 @@ const express = require('express');
 const session = require('express-session');
 const flash = require('connect-flash');
 const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
 try { require('dotenv').config(); } catch (err) { console.warn('dotenv not installed, skipping .env load'); }
 
 const productRoutes = require('./routes/productRoutes');
@@ -12,8 +14,16 @@ const adminRoutes = require('./routes/adminRoutes');
 const tradeRoutes = require('./routes/tradeRoutes');
 const { exposeUser } = require('./middleware/auth');
 const db = require('./db');
+const Trade = require('./models/Trade');
+const Product = require('./models/Product');
+const Notification = require('./models/Notification');
+const TradeMessage = require('./models/TradeMessage');
+const TradeMeeting = require('./models/TradeMeeting');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+app.set('io', io);
 
 // View engine and static files
 app.set('view engine', 'ejs');
@@ -37,6 +47,28 @@ const runQuery = (sql, params = []) => new Promise((resolve, reject) => {
   });
 });
 
+const toPromise = (fn, ...args) =>
+  new Promise((resolve, reject) =>
+    fn(...args, (err, res) => (err ? reject(err) : resolve(res)))
+  );
+
+const groupByTradeId = (items) =>
+  items.reduce((acc, item) => {
+    if (!acc[item.trade_id]) acc[item.trade_id] = [];
+    acc[item.trade_id].push(item);
+    return acc;
+  }, {});
+
+io.on('connection', (socket) => {
+  socket.on('join', ({ userId, tradeIds }) => {
+    if (userId) socket.join(`user:${userId}`);
+    socket.join('global');
+    if (Array.isArray(tradeIds)) {
+      tradeIds.forEach((id) => socket.join(`trade:${id}`));
+    }
+  });
+});
+
 // Routes
 app.get('/', async (req, res) => {
   const user = req.session.user;
@@ -45,6 +77,13 @@ app.get('/', async (req, res) => {
   }
   const success = req.flash('success');
   let stats = { totalTransactions: 0, totalUsers: 0, totalProducts: 0, totalTrades: 0 };
+  let myTrades = [];
+  let openTrades = [];
+  let products = [];
+  let userNotifications = [];
+  let globalNotifications = [];
+  let messagesByTradeId = {};
+  let proposalsByTradeId = {};
   try {
     const [ordersRow, usersRow, productsRow, tradesRow] = await Promise.all([
       runQuery('SELECT COUNT(*) AS totalTransactions FROM orders'),
@@ -58,10 +97,43 @@ app.get('/', async (req, res) => {
       totalProducts: productsRow[0]?.totalProducts || 0,
       totalTrades: tradesRow[0]?.totalTrades || 0
     };
+    if (user && user.role !== 'admin') {
+      const [myTradesRes, openTradesRes, productsRes, userNotifsRes, globalNotifsRes] = await Promise.all([
+        toPromise(Trade.listForUser, user.id),
+        toPromise(Trade.listOpenForOthers, user.id),
+        toPromise(Product.getActive),
+        toPromise(Notification.listForUser, user.id, 8),
+        toPromise(Notification.listGlobal, 8)
+      ]);
+      myTrades = myTradesRes;
+      openTrades = openTradesRes;
+      products = productsRes;
+      userNotifications = userNotifsRes;
+      globalNotifications = globalNotifsRes;
+
+      const acceptedTradeIds = myTrades.filter(t => t.status === 'accepted').map(t => t.id);
+      const [messagesList, proposalsList] = await Promise.all([
+        toPromise(TradeMessage.listForTradeIds, acceptedTradeIds),
+        toPromise(TradeMeeting.listForTradeIds, acceptedTradeIds)
+      ]);
+      messagesByTradeId = groupByTradeId(messagesList);
+      proposalsByTradeId = groupByTradeId(proposalsList);
+    }
   } catch (err) {
     console.error('Error fetching homepage stats:', err);
   }
-  return res.render('index', { user, messages: success, stats });
+  return res.render('index', {
+    user,
+    messages: success,
+    stats,
+    myTrades,
+    openTrades,
+    products,
+    userNotifications,
+    globalNotifications,
+    messagesByTradeId,
+    proposalsByTradeId
+  });
 });
 app.use(productRoutes);
 app.use(userRoutes);
@@ -74,4 +146,4 @@ app.use(tradeRoutes);
 app.use((req, res) => res.status(404).send('Page not found'));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

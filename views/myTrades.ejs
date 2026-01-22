@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="/theme.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <title>My Trades</title>
+  <style>
+    body {
+      background: #0b0c0f;
+      color: #e9ecef;
+      font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    .page-shell { padding-top: 2rem; padding-bottom: 2rem; }
+    .glass-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 1rem;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.5);
+    }
+    .custom-navbar {
+      background-color: transparent !important;
+      padding-top: 1.05rem;
+      padding-bottom: 1.05rem;
+      min-height: 80px;
+      z-index: 1030;
+      box-shadow: none;
+    }
+    .chat-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      border: 1px solid rgba(88,166,255,0.45);
+      background: rgba(88,166,255,0.12);
+      color: #d5f3ff;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .chat-link:hover {
+      color: #ffffff;
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(15,176,255,0.3);
+    }
+    .chat-link svg { width: 18px; height: 18px; }
+    .brand-logo {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      display: inline-flex;
+      flex-direction: column;
+      text-align: center;
+      text-decoration: none;
+      line-height: 1.05;
+      padding-left: 0.1rem;
+    }
+    .brand-main {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: 0.33em;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+    .brand-sub {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.75);
+      margin-top: 0.15rem;
+    }
+    .notification-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .notification-card {
+      background: linear-gradient(140deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+      border: 1px solid rgba(88,166,255,0.25);
+      border-radius: 16px;
+      padding: 1rem 1.2rem;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    }
+    .notification-item {
+      padding: 0.65rem 0.8rem;
+      border-radius: 12px;
+      background: rgba(6,12,22,0.7);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .notification-item + .notification-item { margin-top: 0.6rem; }
+    .notification-meta { font-size: 0.75rem; color: rgba(234,242,255,0.7); }
+
+    .trade-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+    .trade-card {
+      background: rgba(6,12,22,0.7);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 1rem;
+      box-shadow: 0 12px 26px rgba(0,0,0,0.35);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      border-radius: 999px;
+      padding: 0.2rem 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .pill-open { background: rgba(59,130,246,0.18); color: #bfdbfe; border: 1px solid rgba(59,130,246,0.4); }
+    .pill-pending_initiator { background: rgba(234,179,8,0.16); color: #fde68a; border: 1px solid rgba(234,179,8,0.4); }
+    .pill-accepted { background: rgba(16,185,129,0.18); color: #a7f3d0; border: 1px solid rgba(16,185,129,0.45); }
+    .pill-declined { background: rgba(239,68,68,0.16); color: #fecdd3; border: 1px solid rgba(239,68,68,0.45); }
+    .pill-cancelled { background: rgba(107,114,128,0.16); color: #e5e7eb; border: 1px solid rgba(107,114,128,0.45); }
+
+    .btn-ghost {
+      border-radius: 999px;
+      border: 1px solid rgba(74,212,255,0.5);
+      color: #d5f3ff;
+      background: rgba(74,212,255,0.08);
+    }
+    .btn-ghost:hover { color: #fff; border-color: rgba(74,212,255,0.7); background: rgba(74,212,255,0.14); }
+    .form-select, .form-control { background: rgba(255,255,255,0.04); color: #e9ecef; border: 1px solid rgba(255,255,255,0.12); }
+    .form-select:focus, .form-control:focus { box-shadow: 0 0 0 0.15rem rgba(74,212,255,0.25); border-color: rgba(74,212,255,0.5); }
+    .form-select option { background: #0b0c0f; color: #e9ecef; }
+
+    .chat-panel {
+      margin-top: 0.8rem;
+      padding: 0.75rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed rgba(255,255,255,0.12);
+    }
+    .chat-messages {
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      padding-right: 0.3rem;
+    }
+    .chat-message { display: flex; flex-direction: column; gap: 0.2rem; }
+    .chat-bubble {
+      padding: 0.45rem 0.7rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .chat-out .chat-bubble { background: rgba(88,166,255,0.2); border-color: rgba(88,166,255,0.4); }
+    .chat-meta { font-size: 0.7rem; color: rgba(234,242,255,0.7); }
+    .chat-form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem;
+      margin-top: 0.6rem;
+    }
+    .chat-form input {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      border-radius: 999px;
+      padding: 0.4rem 0.9rem;
+    }
+    .chat-form button {
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(90deg, #0fb0ff 0%, #4ad4ff 100%);
+      color: #04101f;
+      font-weight: 700;
+      padding: 0.35rem 0.9rem;
+    }
+    .proposal-panel {
+      margin-top: 0.8rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .proposal-card {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.4rem;
+      padding: 0.45rem 0.6rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+    }
+    .proposal-card + .proposal-card { margin-top: 0.5rem; }
+    .proposal-actions { display: flex; gap: 0.4rem; }
+    .proposal-actions button {
+      border-radius: 999px;
+      padding: 0.2rem 0.7rem;
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body class="theme-gradient d-flex flex-column min-vh-100">
+  <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
+    <div class="container-fluid" role="navigation" aria-label="Main navigation">
+      <a class="navbar-brand brand-logo" href="/">
+        <span class="brand-main">PokeVault</span>
+        <span class="brand-sub">SINGAPORE</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar" aria-controls="collapsibleNavbar" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="collapsibleNavbar">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item d-flex align-items-center me-3">
+            <span class="text-light small">Signed in as <strong><%= user.username %></strong></span>
+          </li>
+          <li class="nav-item me-2">
+            <a class="chat-link" href="/trade-chat" title="Trade chat" aria-label="Trade chat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 5h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/>
+              </svg>
+            </a>
+          </li>
+          <li class="nav-item me-2">
+            <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/trades">Trade</a>
+          </li>
+          <li class="nav-item me-2">
+            <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/shopping">Shop</a>
+          </li>
+          <li class="nav-item">
+            <a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/logout" role="button" title="Sign out">Logout</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container page-shell flex-grow-1">
+    <% const userNotificationsList = (typeof userNotifications !== 'undefined' && Array.isArray(userNotifications)) ? userNotifications : []; %>
+    <% const globalNotificationsList = (typeof globalNotifications !== 'undefined' && Array.isArray(globalNotifications)) ? globalNotifications : []; %>
+    <% const openTradesList = (typeof openTrades !== 'undefined' && Array.isArray(openTrades)) ? openTrades : []; %>
+    <% const myTradesList = (typeof myTrades !== 'undefined' && Array.isArray(myTrades)) ? myTrades : []; %>
+    <% const productsList = (typeof products !== 'undefined' && Array.isArray(products)) ? products : []; %>
+    <% const messagesByTrade = (typeof messagesByTradeId !== 'undefined' && messagesByTradeId) ? messagesByTradeId : {}; %>
+    <% const proposalsByTrade = (typeof proposalsByTradeId !== 'undefined' && proposalsByTradeId) ? proposalsByTradeId : {}; %>
+
+    <div class="notification-grid mb-4">
+      <div class="notification-card">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div>
+            <div class="text-uppercase text-white-50 small fw-semibold">Your notifications</div>
+            <h6 class="mb-0">Inbox</h6>
+          </div>
+          <span class="badge text-bg-secondary"><%= userNotificationsList.length %></span>
+        </div>
+        <div id="user-notifications">
+          <% if (!userNotificationsList.length) { %>
+            <div class="notification-item text-white-50">No notifications yet.</div>
+          <% } else { %>
+            <% userNotificationsList.forEach(n => { %>
+              <div class="notification-item">
+                <div class="fw-semibold"><%= n.message %></div>
+                <div class="notification-meta"><%= new Date(n.created_at).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) %></div>
+              </div>
+            <% }); %>
+          <% } %>
+        </div>
+      </div>
+      <div class="notification-card">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div>
+            <div class="text-uppercase text-white-50 small fw-semibold">Global feed</div>
+            <h6 class="mb-0">Collector updates</h6>
+          </div>
+          <span class="badge text-bg-secondary"><%= globalNotificationsList.length %></span>
+        </div>
+        <div id="global-notifications">
+          <% if (!globalNotificationsList.length) { %>
+            <div class="notification-item text-white-50">No global updates yet.</div>
+          <% } else { %>
+            <% globalNotificationsList.forEach(n => { %>
+              <div class="notification-item">
+                <div class="fw-semibold"><%= n.message %></div>
+                <div class="notification-meta"><%= new Date(n.created_at).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) %></div>
+              </div>
+            <% }); %>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass-card p-4">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div></div>
+        <a class="btn btn-ghost btn-sm" href="/trade-chat">Open Trade Chat</a>
+      </div>
+      <ul class="nav nav-pills mb-3" id="tradeTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="pending-tab" data-bs-toggle="pill" data-bs-target="#pending-trades" type="button" role="tab">Pending</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="accepted-tab" data-bs-toggle="pill" data-bs-target="#accepted-trades" type="button" role="tab">Accepted</button>
+        </li>
+      </ul>
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="pending-trades" role="tabpanel">
+          <div class="trade-grid">
+            <div class="trade-card">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Open trades from others</h6>
+                <span class="badge text-bg-secondary"><%= openTradesList.length %></span>
+              </div>
+              <% if (!openTradesList.length) { %>
+                <p class="text-white-50 mb-0">No open trades right now.</p>
+              <% } else { %>
+                <div class="vstack gap-2">
+                  <% openTradesList.forEach(t => { %>
+                    <div class="trade-card">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                          <div class="fw-semibold"><%= t.initiatorProductName || 'Card #' + t.initiator_product_id %></div>
+                          <small class="text-white-50">Offered by <%= t.initiatorUsername || ('user #' + t.initiator_id) %></small>
+                        </div>
+                        <span class="pill pill-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span>
+                      </div>
+                      <form action="/trades/<%= t.id %>/offer" method="POST" class="row g-2 align-items-end">
+                        <div class="col-12 col-md-6">
+                          <label class="form-label text-white-50">Offer your card</label>
+                          <select class="form-select form-select-sm" name="productId" required>
+                            <option value="">Select</option>
+                            <% productsList.forEach(p => { %>
+                              <option value="<%= p.id %>"><%= p.productName %></option>
+                            <% }); %>
+                          </select>
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label text-white-50">Note (optional)</label>
+                          <input class="form-control form-control-sm" name="note" maxlength="255" placeholder="Message">
+                        </div>
+                        <div class="col-12 col-md-2 d-grid">
+                          <button type="submit" class="btn btn-ghost btn-sm">Offer</button>
+                        </div>
+                      </form>
+                    </div>
+                  <% }); %>
+                </div>
+              <% } %>
+            </div>
+
+            <div class="trade-card">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Your pending trades</h6>
+                <span class="badge text-bg-secondary"><%= myTradesList.filter(t => t.status === 'open' || t.status === 'pending_initiator').length %></span>
+              </div>
+              <% const pendingTrades = myTradesList.filter(t => t.status === 'open' || t.status === 'pending_initiator'); %>
+              <% if (!pendingTrades.length) { %>
+                <p class="text-white-50 mb-0">You have no pending trades.</p>
+              <% } else { %>
+                <div class="vstack gap-2">
+                  <% pendingTrades.forEach(t => { %>
+                    <% const isOwner = t.initiator_id === user.id; %>
+                    <% const isResponder = t.responder_id === user.id; %>
+                    <% const ownerCard = t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
+                    <% const responderCard = t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null; %>
+                    <% const ownerLabel = isOwner ? 'You' : (t.initiatorUsername || ('User #' + t.initiator_id)); %>
+                    <% const responderLabel = isResponder ? 'You' : (t.responderUsername || (t.responder_id ? ('User #' + t.responder_id) : '')); %>
+                    <div class="trade-card">
+                      <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div>
+                          <% if (isOwner) { %>
+                            <div class="fw-semibold">You offered: <%= ownerCard %></div>
+                            <% if (responderCard) { %>
+                              <div class="text-white-50 small"><%= responderLabel || 'They' %> offered: <%= responderCard %></div>
+                            <% } else { %>
+                              <div class="text-white-50 small">Awaiting an offer.</div>
+                            <% } %>
+                          <% } else { %>
+                            <div class="fw-semibold"><%= ownerLabel %> offered: <%= ownerCard %></div>
+                            <% if (responderCard) { %>
+                              <div class="text-white-50 small"><%= responderLabel %> offered: <%= responderCard %></div>
+                            <% } else { %>
+                              <div class="text-white-50 small">You offered this card.</div>
+                            <% } %>
+                          <% } %>
+                        </div>
+                        <span class="pill pill-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span>
+                      </div>
+
+                      <% if (t.status === 'pending_initiator' && t.responder_id && isOwner) { %>
+                        <div class="d-flex gap-2 mt-2">
+                          <form action="/trades/<%= t.id %>/accept" method="POST">
+                            <button type="submit" class="btn btn-success btn-sm">Accept</button>
+                          </form>
+                          <form action="/trades/<%= t.id %>/decline" method="POST">
+                            <button type="submit" class="btn btn-outline-danger btn-sm">Decline</button>
+                          </form>
+                        </div>
+                      <% } %>
+                      <% if (isOwner && (t.status === 'open' || t.status === 'pending_initiator')) { %>
+                        <div class="mt-2">
+                          <form action="/trades/<%= t.id %>/cancel" method="POST">
+                            <button type="submit" class="btn btn-outline-light btn-sm">Cancel trade</button>
+                          </form>
+                        </div>
+                      <% } %>
+                    </div>
+                  <% }); %>
+                </div>
+              <% } %>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="accepted-trades" role="tabpanel">
+          <% const acceptedTrades = myTradesList.filter(t => t.status === 'accepted'); %>
+          <% if (!acceptedTrades.length) { %>
+            <p class="text-white-50 mb-0">No accepted trades yet.</p>
+          <% } else { %>
+            <div class="vstack gap-2">
+              <% acceptedTrades.forEach(t => { %>
+                <% const isOwner = t.initiator_id === user.id; %>
+                <% const isResponder = t.responder_id === user.id; %>
+                <% const ownerCard = t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
+                <% const responderCard = t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null; %>
+                <% const ownerLabel = isOwner ? 'You' : (t.initiatorUsername || ('User #' + t.initiator_id)); %>
+                <% const responderLabel = isResponder ? 'You' : (t.responderUsername || (t.responder_id ? ('User #' + t.responder_id) : '')); %>
+                <div class="trade-card">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                      <div class="fw-semibold"><%= ownerLabel %> offered: <%= ownerCard %></div>
+                      <% if (responderCard) { %>
+                        <div class="text-white-50 small"><%= responderLabel %> offered: <%= responderCard %></div>
+                      <% } %>
+                    </div>
+                    <span class="pill pill-accepted">accepted</span>
+                  </div>
+                  <div class="mt-2">
+                    <a class="btn btn-ghost btn-sm" href="/trade-chat">Open chat</a>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer mt-auto">
+    <div class="container text-center">
+      <p class="mb-1">Connecting Pokemon card collectors worldwide - shop, sell, and trade in a safe and growing community.</p>
+      <small class="small">Ac <%= new Date().getFullYear() %> PokeVault. All rights reserved.</small>
+    </div>
+  </footer>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    (function() {
+      const user = <%- JSON.stringify(user ? { id: user.id, username: user.username } : null) %>;
+      if (!user) return;
+      const tradeIds = <%- JSON.stringify((myTradesList || []).filter(t => t.status === 'accepted').map(t => t.id)) %>;
+      const socket = io();
+      socket.emit('join', { userId: user.id, tradeIds });
+
+      const userList = document.getElementById('user-notifications');
+      const globalList = document.getElementById('global-notifications');
+      const formatTime = (value) => new Date(value).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
+
+      function prependNotification(container, message, time) {
+        if (!container) return;
+        const item = document.createElement('div');
+        item.className = 'notification-item';
+        item.innerHTML = `<div class="fw-semibold">${message}</div><div class="notification-meta">${formatTime(time)}</div>`;
+        container.prepend(item);
+      }
+
+      socket.on('notification:user', (n) => prependNotification(userList, n.message, n.created_at || new Date().toISOString()));
+      socket.on('notification:global', (n) => prependNotification(globalList, n.message, n.created_at || new Date().toISOString()));
+
+      socket.on('trade:message', (msg) => {
+        const container = document.getElementById(`chat-messages-${msg.trade_id}`);
+        if (!container) return;
+        const wrap = document.createElement('div');
+        wrap.className = `chat-message ${msg.sender_id === user.id ? 'chat-out' : 'chat-in'}`;
+        wrap.innerHTML = `<div class="chat-meta">${msg.senderUsername || 'User'} · ${formatTime(msg.created_at || new Date().toISOString())}</div><div class="chat-bubble"></div>`;
+        wrap.querySelector('.chat-bubble').textContent = msg.message;
+        container.appendChild(wrap);
+        container.scrollTop = container.scrollHeight;
+      });
+
+      socket.on('meeting:proposed', (proposal) => {
+        const list = document.getElementById(`proposal-list-${proposal.trade_id}`);
+        if (!list) return;
+        const card = document.createElement('div');
+        card.className = 'proposal-card';
+        card.dataset.proposalId = proposal.id;
+        const actions = proposal.proposer_id !== user.id
+          ? `<div class="proposal-actions">
+              <button type="button" class="btn btn-success btn-sm proposal-action" data-action="accepted" data-trade-id="${proposal.trade_id}" data-proposal-id="${proposal.id}">Accept</button>
+              <button type="button" class="btn btn-outline-danger btn-sm proposal-action" data-action="declined" data-trade-id="${proposal.trade_id}" data-proposal-id="${proposal.id}">Decline</button>
+            </div>`
+          : '';
+        card.innerHTML = `
+          <div>
+            <div class="fw-semibold">${formatTime(proposal.proposed_at)}</div>
+            <div class="notification-meta">Proposed by ${proposal.proposerUsername || 'User'} · proposed</div>
+          </div>
+          ${actions}
+        `;
+        list.appendChild(card);
+      });
+
+      socket.on('meeting:responded', (payload) => {
+        const list = document.getElementById(`proposal-list-${payload.trade_id}`);
+        if (!list) return;
+        const card = list.querySelector(`[data-proposal-id="${payload.id}"]`);
+        if (!card) return;
+        const meta = card.querySelector('.notification-meta');
+        if (meta) meta.textContent = `Updated · ${payload.status}`;
+        const actions = card.querySelector('.proposal-actions');
+        if (actions) actions.remove();
+      });
+
+      document.querySelectorAll('.chat-form').forEach((form) => {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const tradeId = form.dataset.tradeId;
+          const input = form.querySelector('input[name="message"]');
+          const message = input ? input.value.trim() : '';
+          if (!message) return;
+          const body = new URLSearchParams({ message });
+          try {
+            const res = await fetch(`/trades/${tradeId}/messages`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body
+            });
+            if (!res.ok) throw new Error('Message failed');
+            if (input) input.value = '';
+          } catch (err) {
+            console.error(err);
+          }
+        });
+      });
+
+      document.querySelectorAll('.proposal-form').forEach((form) => {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const tradeId = form.dataset.tradeId;
+          const input = form.querySelector('input[name="proposedAt"]');
+          const proposedAt = input ? input.value : '';
+          if (!proposedAt) return;
+          const body = new URLSearchParams({ proposedAt });
+          try {
+            const res = await fetch(`/trades/${tradeId}/meeting-proposals`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body
+            });
+            if (!res.ok) throw new Error('Proposal failed');
+            if (input) input.value = '';
+          } catch (err) {
+            console.error(err);
+          }
+        });
+      });
+
+      document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.proposal-action');
+        if (!btn) return;
+        const tradeId = btn.dataset.tradeId;
+        const proposalId = btn.dataset.proposalId;
+        const action = btn.dataset.action;
+        const body = new URLSearchParams({ action });
+        try {
+          const res = await fetch(`/trades/${tradeId}/meeting-proposals/${proposalId}/respond`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+          });
+          if (!res.ok) throw new Error('Response failed');
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
