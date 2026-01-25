@@ -73,6 +73,22 @@ const AdminController = {
       return res.redirect('/admin/users/add');
     }
 
+    let existingUsers = [];
+    try {
+      existingUsers = await runQuery('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
+    } catch (err) {
+      console.error('Error checking existing email:', err);
+      req.flash('error', 'Could not create user.');
+      req.flash('formData', req.body);
+      return res.redirect('/admin/users/add');
+    }
+
+    if (existingUsers.length > 0) {
+      req.flash('error', 'Email already registered. Please use another email.');
+      req.flash('formData', req.body);
+      return res.redirect('/admin/users/add');
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
     const sql = 'INSERT INTO users (username, email, password, address, contact, role) VALUES (?, ?, ?, ?, ?, ?)';
     db.query(sql, [username, email, passwordHash, address, contact, chosenRole], (err) => {

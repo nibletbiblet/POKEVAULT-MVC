@@ -11,8 +11,14 @@ const UserController = {
 
   async register(req, res) {
     const db = require('../db');
-    const { username, email, password, address, contact, pdpaAccepted } = req.body;
-    const role = 'user';
+    const { username, email, password, address, contact, pdpaAccepted, adminKey } = req.body;
+    const adminSignupKey = process.env.ADMIN_SIGNUP_KEY || 'admin';
+    const normalizedAdminKey = typeof adminKey === 'string' ? adminKey.trim() : '';
+    let role = 'user';
+
+    if (normalizedAdminKey && normalizedAdminKey.length === 5 && normalizedAdminKey === adminSignupKey) {
+      role = 'admin';
+    }
 
     if (!username || !email || !password || !address || !contact) {
       req.flash('error', 'All fields are required.');
@@ -26,6 +32,26 @@ const UserController = {
     }
     if (password.length < 6) {
       req.flash('error', 'Password should be at least 6 or more characters long');
+      req.flash('formData', req.body);
+      return res.redirect('/register');
+    }
+
+    let existingUsers = [];
+    try {
+      existingUsers = await new Promise((resolve, reject) => {
+        db.query('SELECT id FROM users WHERE email = ? LIMIT 1', [email], (err, rows) => {
+          if (err) return reject(err);
+          resolve(rows || []);
+        });
+      });
+    } catch (err) {
+      console.error('Error checking existing email:', err);
+      req.flash('error', 'Registration failed. Try again.');
+      return res.redirect('/register');
+    }
+
+    if (existingUsers.length > 0) {
+      req.flash('error', 'Email already registered. Please use another email.');
       req.flash('formData', req.body);
       return res.redirect('/register');
     }

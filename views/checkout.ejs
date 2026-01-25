@@ -41,6 +41,11 @@ background-size: cover;
     footer.site-footer { background:#0b0c0d; color:#fff; padding-top:2.5rem; padding-bottom:2.5rem; border-top:1px solid rgba(255,255,255,0.03); }
     .input-ghost { background: rgba(255,255,255); border:1px solid rgba(255,255,255,0.12); color:#fff; }
     .input-ghost:focus { background: rgba(255,255,255,0.08); color:#fff; border-color: rgba(255,255,255,0.32); box-shadow: 0 0 0 0.2rem rgba(255,255,255,0.12); }
+    .input-group .btn-toggle { border-color: rgba(255,255,255,0.2); color:#fff; background: rgba(255,255,255,0.08); font-weight:600; }
+    .input-group .btn-toggle:hover { background: rgba(255,255,255,0.16); }
+    .toggle-icon { display:inline-flex; align-items:center; }
+    .toggle-icon svg { width:18px; height:18px; fill: currentColor; }
+    .toggle-label { margin-left:0.35rem; }
     .pill-choice { display:inline-flex; align-items:center; gap:0.35rem; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.05); border-radius:999px; padding:0.3rem 0.75rem; color:#fff; font-weight:600; font-size:0.9rem; }
     .pill-choice input { accent-color:#fff; }
     .apple-pay-btn { display:inline-flex; align-items:center; justify-content:center; gap:0.35rem; width:100%; height:48px; border-radius:12px; border:1px solid #000; background:#000; color:#fff; font-weight:700; letter-spacing:0.01em; font-size:1rem; transition:transform 140ms ease, box-shadow 140ms ease, background 140ms ease; }
@@ -196,18 +201,38 @@ background-size: cover;
             </div>
             <div class="mb-3">
               <label class="form-label">Card Number</label>
-              <input type="text" class="form-control input-ghost" name="cardNumber" inputmode="numeric" pattern="[0-9 ]{12,23}" placeholder="0000 0000 0000 0000" aria-describedby="cardNumberHelp">
+              <div class="input-group">
+                <input type="password" class="form-control input-ghost" id="cardNumber" name="cardNumber" inputmode="numeric" pattern="[0-9 ]{12,23}" placeholder="0000 0000 0000 0000" aria-describedby="cardNumberHelp">
+                <button class="btn btn-toggle" type="button" id="toggleCardNumber" aria-label="Show card number" aria-pressed="false">
+                  <span class="toggle-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M12 5c-5 0-9.3 3.1-11 7 1.7 3.9 6 7 11 7s9.3-3.1 11-7c-1.7-3.9-6-7-11-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"></path>
+                    </svg>
+                  </span>
+                  <span class="toggle-label">Show</span>
+                </button>
+              </div>
               <small id="cardNumberHelp" class="text-white-50">Use digits only; spaces are okay. Demo only ? no real payment is processed.</small>
             </div>
             <div class="row mb-3">
               <div class="col-6">
                 <label class="form-label">Expiry</label>
-                <input type="text" class="form-control input-ghost" name="cardExpiry" placeholder="MM/YY" inputmode="numeric" pattern="(0[1-9]|1[0-2])/[0-9]{2}" aria-describedby="expiryHelp">
+                <input type="text" class="form-control input-ghost" id="cardExpiry" name="cardExpiry" placeholder="MM/YY" inputmode="numeric" pattern="(0[1-9]|1[0-2])/[0-9]{2}" aria-describedby="expiryHelp">
                 <small id="expiryHelp" class="text-white-50">Format: MM/YY (e.g., 09/26)</small>
               </div>
               <div class="col-6">
                 <label class="form-label">CVV</label>
-                <input type="password" class="form-control input-ghost" name="cardCvv" placeholder="123" inputmode="numeric" pattern="[0-9]{3,4}" aria-describedby="cvvHelp">
+                <div class="input-group">
+                  <input type="password" class="form-control input-ghost" id="cardCvv" name="cardCvv" placeholder="123" inputmode="numeric" pattern="[0-9]{3,4}" aria-describedby="cvvHelp">
+                  <button class="btn btn-toggle" type="button" id="toggleCvv" aria-label="Show CVV" aria-pressed="false">
+                    <span class="toggle-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M12 5c-5 0-9.3 3.1-11 7 1.7 3.9 6 7 11 7s9.3-3.1 11-7c-1.7-3.9-6-7-11-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"></path>
+                      </svg>
+                    </span>
+                    <span class="toggle-label">Show</span>
+                  </button>
+                </div>
                 <small id="cvvHelp" class="text-white-50">3?4 digits</small>
               </div>
             </div>
@@ -224,6 +249,58 @@ background-size: cover;
     <small class="small">© <%= new Date().getFullYear() %> PokéVault. All rights reserved.</small>
   </div>
 </footer>
+  <script>
+    (function() {
+      const cardNumberInput = document.getElementById('cardNumber');
+      const expiryInput = document.getElementById('cardExpiry');
+      const cvvInput = document.getElementById('cardCvv');
+      const cardToggle = document.getElementById('toggleCardNumber');
+      const cvvToggle = document.getElementById('toggleCvv');
+
+      const onlyDigits = (value) => value.replace(/\D/g, '');
+      const formatCardNumber = (value) => {
+        const digits = onlyDigits(value).slice(0, 19);
+        return digits.replace(/(.{4})/g, '$1 ').trim();
+      };
+      const formatExpiry = (value) => {
+        const digits = onlyDigits(value).slice(0, 4);
+        if (digits.length <= 2) return digits;
+        return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+      };
+      const formatCvv = (value) => onlyDigits(value).slice(0, 4);
+
+      if (cardNumberInput) {
+        cardNumberInput.addEventListener('input', (event) => {
+          event.target.value = formatCardNumber(event.target.value);
+        });
+      }
+      if (expiryInput) {
+        expiryInput.addEventListener('input', (event) => {
+          event.target.value = formatExpiry(event.target.value);
+        });
+      }
+      if (cvvInput) {
+        cvvInput.addEventListener('input', (event) => {
+          event.target.value = formatCvv(event.target.value);
+        });
+      }
+
+      const attachToggle = (input, button, label) => {
+        if (!input || !button) return;
+        button.addEventListener('click', () => {
+          const showing = input.type === 'password';
+          input.type = showing ? 'text' : 'password';
+          button.setAttribute('aria-pressed', showing ? 'true' : 'false');
+          button.setAttribute('aria-label', `${showing ? 'Hide' : 'Show'} ${label}`);
+          const labelEl = button.querySelector('.toggle-label');
+          if (labelEl) labelEl.textContent = showing ? 'Hide' : 'Show';
+        });
+      };
+
+      attachToggle(cardNumberInput, cardToggle, 'card number');
+      attachToggle(cvvInput, cvvToggle, 'CVV');
+    })();
+  </script>
 </body>
 </html>
 

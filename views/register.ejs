@@ -8,7 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="/theme.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <title>Supermarket App - Register</title>
+  <title>PokeVault - Register</title>
   <style>
     /* Register hero styling aligned to login hero */
     .custom-navbar {
@@ -205,6 +205,10 @@
             <div class="mb-3">
               <label for="password" class="form-label">Password</label>
               <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label for="adminKey" class="form-label">Admin key (if available)</label>
+              <input type="text" id="adminKey" name="adminKey" class="form-control" maxlength="5" value="<%= formData && formData.adminKey ? formData.adminKey : '' %>">
             </div>
             <div class="row">
               <div class="col-md-8 mb-3">
