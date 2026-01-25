@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/trades', requireAuth, TradeController.list);
+router.get('/trades/image-search', requireAuth, TradeController.imageSearch);
 router.get('/my-trades', requireAuth, TradeController.myTradesPage);
 router.get('/trade-chat', requireAuth, TradeController.chatPage);
 router.get('/trades/all', requireAuth, TradeController.listAll);
