@@ -58,6 +58,7 @@
           <li class="nav-item d-flex align-items-center me-3"><span class="text-light small">Signed in as <strong><%= user.username %></strong></span></li>
           <li class="nav-item"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/">Home</a></li>
           <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/shopping">Shop</a></li>
+          <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/purchases">My Purchases</a></li>
           <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/logout">Logout</a></li>
         </ul>
       </div>
@@ -94,7 +95,11 @@
                   <span class="badge-soft">$<%= Number(o.total).toFixed(2) %></span>
                 </div>
                 <div class="mt-auto">
-                  <a class="btn btn-outline-light btn-sm w-100" href="/orders/<%= o.id %>">View Receipt</a>
+                  <% if (o.status && o.status !== 'TO_PAY') { %>
+                    <a class="btn btn-outline-light btn-sm w-100" href="/orders/<%= o.id %>">View Receipt</a>
+                  <% } else { %>
+                    <span class="text-white-50 small d-block mt-2">Receipt available after payment</span>
+                  <% } %>
                 </div>
               </div>
             </div>

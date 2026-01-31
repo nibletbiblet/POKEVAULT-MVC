@@ -12,6 +12,7 @@ const cartRoutes = require('./routes/cartRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const tradeRoutes = require('./routes/tradeRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 const { exposeUser } = require('./middleware/auth');
 const db = require('./db');
 const Trade = require('./models/Trade');
@@ -29,6 +30,7 @@ app.set('io', io);
 app.set('view engine', 'ejs');
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
 
 // Session + flash
 app.use(session({
@@ -141,6 +143,7 @@ app.use(cartRoutes);
 app.use(orderRoutes);
 app.use(adminRoutes);
 app.use(tradeRoutes);
+app.use(paymentRoutes);
 
 // Fallback
 app.use((req, res) => res.status(404).send('Page not found'));

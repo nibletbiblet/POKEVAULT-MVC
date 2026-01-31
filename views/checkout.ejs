@@ -6,6 +6,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="/theme.css" rel="stylesheet">
+  <script src="https://www.paypal.com/sdk/js?client-id=<%= process.env.PAYPAL_CLIENT_ID %>&currency=SGD"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <title>Checkout</title>
   <style>
@@ -48,6 +49,13 @@ background-size: cover;
     .toggle-label { margin-left:0.35rem; }
     .pill-choice { display:inline-flex; align-items:center; gap:0.35rem; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.05); border-radius:999px; padding:0.3rem 0.75rem; color:#fff; font-weight:600; font-size:0.9rem; }
     .pill-choice input { accent-color:#fff; }
+    .pill-choice.is-disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      border-color: rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+    }
+    .pill-choice.is-disabled span { color: rgba(255,255,255,0.6); }
     .apple-pay-btn { display:inline-flex; align-items:center; justify-content:center; gap:0.35rem; width:100%; height:48px; border-radius:12px; border:1px solid #000; background:#000; color:#fff; font-weight:700; letter-spacing:0.01em; font-size:1rem; transition:transform 140ms ease, box-shadow 140ms ease, background 140ms ease; }
     .apple-pay-btn:hover { transform:translateY(-1px); box-shadow:0 8px 18px rgba(0,0,0,0.35); background:#050505; }
     .apple-pay-btn:focus { outline:2px solid rgba(255,255,255,0.25); outline-offset:3px; }
@@ -67,6 +75,9 @@ background-size: cover;
     const localGst = typeof gst !== 'undefined' ? gst : (discountedSubtotal * gstRateLocal);
     const localDelivery = typeof deliveryFee !== 'undefined' ? deliveryFee : (discountedSubtotal * deliveryRateLocal);
     const localTotal = typeof total !== 'undefined' ? total : (discountedSubtotal + localGst + localDelivery);
+    const coinsBalanceLocal = typeof coinsBalance !== 'undefined' ? Number(coinsBalance) : 0;
+    const coinsAppliedLocal = typeof coinsApplied !== 'undefined' ? Number(coinsApplied) : 0;
+    const payableTotal = Math.max(0, localTotal - coinsAppliedLocal);
     const itemCount = (cart || []).reduce((sum, item) => sum + item.quantity, 0);
   %>
   <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
@@ -84,6 +95,7 @@ background-size: cover;
             <span class="text-light small">Signed in as <strong><%= user.username %></strong></span>
           </li>
           <li class="nav-item"><a class="btn btn-outline-light" href="/cart">Back to Cart</a></li>
+          <li class="nav-item ms-2"><a class="btn btn-outline-light" href="/purchases">My Purchases</a></li>
           <li class="nav-item ms-2"><a class="btn btn-outline-light" href="/logout">Logout</a></li>
         </ul>
       </div>
@@ -107,6 +119,9 @@ background-size: cover;
             <span class="summary-chip">Delivery <strong>$<%= (deliveryFee ?? localDelivery).toFixed(2) %></strong></span>
             <% if (localDiscount > 0) { %>
               <span class="summary-chip text-success">Promo -$<%= localDiscount.toFixed(2) %></span>
+            <% } %>
+            <% if (coinsAppliedLocal > 0) { %>
+              <span class="summary-chip text-success">Coins -$<%= coinsAppliedLocal.toFixed(2) %></span>
             <% } %>
           </div>
           <% cart.forEach(item => { %>
@@ -133,6 +148,12 @@ background-size: cover;
                 <span class="text-success">- $<%= localDiscount.toFixed(2) %></span>
               </div>
             <% } %>
+            <% if (coinsAppliedLocal > 0) { %>
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="text-success">Coins applied</span>
+                <span class="text-success">- $<%= coinsAppliedLocal.toFixed(2) %></span>
+              </div>
+            <% } %>
             <div class="d-flex justify-content-between align-items-center">
               <span class="text-white-50">GST (<%= Math.round(gstRateLocal * 100) %>%)</span>
               <span>$<%= (gst ?? localGst).toFixed(2) %></span>
@@ -143,7 +164,7 @@ background-size: cover;
             </div>
             <div class="d-flex justify-content-between align-items-center total-payable mt-2">
               <span class="fw-bold text-white-50">Total Due Today</span>
-              <span class="fs-5 fw-bold">$<%= (total ?? localTotal).toFixed(2) %></span>
+              <span class="fs-5 fw-bold">$<%= payableTotal.toFixed(2) %></span>
             </div>
           </div>
         </div>
@@ -160,6 +181,24 @@ background-size: cover;
               <form method="POST" action="/checkout/promo/remove" class="mt-2">
                 <button type="submit" class="btn btn-sm btn-outline-danger">Remove promo (<%= promoApplied.code %>)</button>
               </form>
+            <% } %>
+          </div>
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <strong>PokeVault Coins</strong>
+              <span class="text-white-50 small">Available: $<%= coinsBalanceLocal.toFixed(2) %></span>
+            </div>
+            <form method="POST" action="/checkout/coins" class="mt-2 d-flex align-items-center gap-2">
+              <input class="form-check-input" type="checkbox" id="useCoins" name="useCoins" value="1"
+                     onchange="this.form.submit()"
+                     <%= coinsBalanceLocal <= 0 ? 'disabled' : '' %>
+                     <%= coinsAppliedLocal > 0 ? 'checked' : '' %>>
+              <label class="form-check-label small" for="useCoins">
+                Use coins (up to $<%= Math.min(coinsBalanceLocal, localTotal).toFixed(2) %>)
+              </label>
+            </form>
+            <% if (coinsAppliedLocal > 0) { %>
+              <div class="text-success small mt-1">Applied: -$<%= coinsAppliedLocal.toFixed(2) %></div>
             <% } %>
           </div>
           <form method="POST" action="/checkout">
@@ -184,22 +223,53 @@ background-size: cover;
             </div>
             <div class="mb-3">
               <label class="form-label">Payment Method</label>
+              <% const walletEnabled = (typeof walletBalance !== 'undefined') ? Number(walletBalance) >= payableTotal : false; %>
               <div class="d-flex gap-2 flex-wrap">
                 <label class="pill-choice">
-                  <input type="radio" name="paymentMethod" value="card" checked>
+                  <input type="radio" name="paymentMethod" value="card">
                   <span>Credit / Debit Card</span>
+                </label>
+                <label class="pill-choice">
+                  <input type="radio" name="paymentMethod" value="paypal">
+                  <span>PayPal</span>
+                </label>
+                <label class="pill-choice">
+                  <input type="radio" name="paymentMethod" value="nets">
+                  <span>NETS</span>
+                </label>
+                <label class="pill-choice <%= walletEnabled ? '' : 'is-disabled' %>">
+                  <input type="radio" name="paymentMethod" value="wallet" <%= walletEnabled ? '' : 'disabled' %>>
+                  <span>PokeVault Pay</span>
                 </label>
                 <label class="pill-choice">
                   <input type="radio" name="paymentMethod" value="cash">
                   <span>Pay on Delivery</span>
                 </label>
               </div>
+              <% if (!walletEnabled) { %>
+                <small class="text-white-50 d-block mt-2">Insufficient PokeVault Pay balance.</small>
+              <% } %>
             </div>
-            <div class="mb-3">
+            <div class="mb-3" id="paypal-section" style="display:none;">
+              <div id="paypal-button-container"></div>
+            </div>
+            <div class="mb-3" id="wallet-section" style="display:none;">
+              <button type="submit" class="btn btn-cta w-100" formaction="/checkout/wallet-pay" formmethod="POST">
+                Pay with PokeVault Pay
+              </button>
+              <small class="text-white-50 d-block mt-2">Balance: $<%= Number(walletBalance || 0).toFixed(2) %></small>
+            </div>
+            <div class="mb-3" id="nets-section" style="display:none;">
+              <div class="d-grid">
+                <button type="submit" class="btn btn-cta" formaction="/checkout/nets" formmethod="POST">Pay with NETS</button>
+              </div>
+              <small class="text-white-50 d-block mt-2">You will be redirected to a NETS QR payment screen.</small>
+            </div>
+            <div class="mb-3" id="card-fields">
               <label class="form-label">Cardholder Name</label>
               <input type="text" class="form-control input-ghost" name="cardName" placeholder="Name on card">
             </div>
-            <div class="mb-3">
+            <div class="mb-3" id="card-number-field">
               <label class="form-label">Card Number</label>
               <div class="input-group">
                 <input type="password" class="form-control input-ghost" id="cardNumber" name="cardNumber" inputmode="numeric" pattern="[0-9 ]{12,23}" placeholder="0000 0000 0000 0000" aria-describedby="cardNumberHelp">
@@ -214,7 +284,7 @@ background-size: cover;
               </div>
               <small id="cardNumberHelp" class="text-white-50">Use digits only; spaces are okay. Demo only ? no real payment is processed.</small>
             </div>
-            <div class="row mb-3">
+            <div class="row mb-3" id="card-extra-fields">
               <div class="col-6">
                 <label class="form-label">Expiry</label>
                 <input type="text" class="form-control input-ghost" id="cardExpiry" name="cardExpiry" placeholder="MM/YY" inputmode="numeric" pattern="(0[1-9]|1[0-2])/[0-9]{2}" aria-describedby="expiryHelp">
@@ -237,7 +307,7 @@ background-size: cover;
               </div>
             </div>
             <div class="d-grid">
-              <button type="submit" class="btn btn-cta">Place Order</button>
+              <button type="submit" class="btn btn-cta" id="placeOrderBtn">Place Order</button>
             </div>
           </form>
         </div>
@@ -251,6 +321,54 @@ background-size: cover;
 </footer>
   <script>
     (function() {
+      const paymentRadios = Array.from(document.querySelectorAll('input[name="paymentMethod"]'));
+      const netsSection = document.getElementById('nets-section');
+      const paypalSection = document.getElementById('paypal-section');
+      const walletSection = document.getElementById('wallet-section');
+      const placeOrderBtn = document.getElementById('placeOrderBtn');
+
+      const cardInputs = [
+        document.querySelector('input[name="cardName"]'),
+        document.getElementById('cardNumber'),
+        document.getElementById('cardExpiry'),
+        document.getElementById('cardCvv')
+      ].filter(Boolean);
+
+      const setCardFieldsVisible = (visible) => {
+        const sections = [
+          document.getElementById('card-fields'),
+          document.getElementById('card-number-field'),
+          document.getElementById('card-extra-fields')
+        ];
+        sections.forEach((el) => {
+          if (!el) return;
+          el.style.display = visible ? '' : 'none';
+        });
+        cardInputs.forEach((input) => {
+          input.disabled = !visible;
+          if (!visible) input.value = '';
+        });
+      };
+
+      const updatePaymentUI = () => {
+        const selected = paymentRadios.find(radio => radio.checked);
+        const isNets = selected && selected.value === 'nets';
+        const isPaypal = selected && selected.value === 'paypal';
+        const isWallet = selected && selected.value === 'wallet';
+        const isCard = selected && selected.value === 'card';
+        const showPlaceOrder = selected && (selected.value === 'card' || selected.value === 'cash');
+        if (netsSection) netsSection.style.display = isNets ? 'block' : 'none';
+        if (paypalSection) paypalSection.style.display = isPaypal ? 'block' : 'none';
+        if (walletSection) walletSection.style.display = isWallet ? 'block' : 'none';
+        if (placeOrderBtn) placeOrderBtn.style.display = showPlaceOrder ? '' : 'none';
+        setCardFieldsVisible(isCard);
+      };
+
+      paymentRadios.forEach(radio => {
+        radio.addEventListener('change', updatePaymentUI);
+      });
+      updatePaymentUI();
+
       const cardNumberInput = document.getElementById('cardNumber');
       const expiryInput = document.getElementById('cardExpiry');
       const cvvInput = document.getElementById('cardCvv');
@@ -301,6 +419,45 @@ background-size: cover;
       attachToggle(cvvInput, cvvToggle, 'CVV');
     })();
   </script>
+  <script>
+    if (window.paypal) {
+      paypal.Buttons({
+        createOrder() {
+          return fetch('/api/paypal/create-order', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              amount: "<%= payableTotal.toFixed(2) %>"
+            })
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.error) throw new Error(data.error);
+              return data.id;
+            });
+        },
+        onApprove(data) {
+          return fetch('/api/paypal/capture-order', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              orderID: data.orderID
+            })
+          }).then((res) => res.json()).then((data) => {
+            if (!data.success) throw new Error(data.error || 'Payment failed');
+            if (data.redirectUrl) {
+              window.location.href = data.redirectUrl;
+              return;
+            }
+            window.location.href = `/orders/${data.orderId}`;
+          });
+        }
+      }).render('#paypal-button-container');
+    }
+  </script>
 </body>
 </html>
-
