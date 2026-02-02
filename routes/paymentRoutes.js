@@ -15,6 +15,7 @@ router.post('/api/bnpl/paypal/capture', requireAuth, BnplController.bnplPaypalCa
 router.get('/bnpl/card', requireAuth, BnplController.cardInfoPage);
 router.post('/bnpl/card/setup', requireAuth, BnplController.cardSetup);
 router.post('/bnpl/card/validate', requireAuth, BnplController.cardValidate);
+router.post('/bnpl/card/cancel', requireAuth, BnplController.cardCancel);
 router.get('/bnpl/orders/:id', requireAuth, BnplController.schedulePage);
 router.get('/bnpl/orders/:id/refund', requireAuth, BnplController.refundPage);
 router.post('/bnpl/orders/:id/refund', requireAuth, BnplController.refundSubmit);

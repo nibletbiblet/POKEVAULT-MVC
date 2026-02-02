@@ -36,6 +36,14 @@ class BnplCardModel {
     `;
     db.query(sql, [userId, cardholderName, last4, expiry, billingAddress], callback);
   }
+
+  static deleteByUserId(userId, callback) {
+    const sql = `
+      DELETE FROM bnpl_cards
+      WHERE user_id = ?
+    `;
+    db.query(sql, [userId], callback);
+  }
 }
 
 module.exports = BnplCardModel;

@@ -85,6 +85,34 @@
       border: 1px solid rgba(255,255,255,0.12);
       box-shadow: 0 6px 16px rgba(0,0,0,0.35);
     }
+    .modal-content.card-frosted {
+      background: rgba(20, 28, 48, 0.95);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+    }
+    .btn-cta:hover {
+      background: #f1f1f1;
+      color: #000 !important;
+    }
+    .btn-cta {
+      background: #ffffff;
+      color: #0a1020 !important;
+      border: 1px solid rgba(255,255,255,0.35);
+    }
+    .btn-cta:focus,
+    .btn-cta:active {
+      background: #dfe7ff;
+      color: #0a1020 !important;
+      box-shadow: 0 0 0 0.2rem rgba(77, 160, 255, 0.35);
+    }
+    .btn-cta:disabled,
+    .btn-cta.disabled {
+      background: rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75) !important;
+      border-color: rgba(255,255,255,0.2);
+      opacity: 1;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body class="theme-gradient d-flex flex-column min-vh-100">
@@ -171,7 +199,11 @@
                     <% } else if (activeTab === 'COMPLETED') { %>
                       <div class="mt-2 d-flex flex-wrap gap-2 justify-content-end">
                         <a class="btn btn-outline-light btn-sm" href="/orders/<%= o.id %>">View Receipt</a>
-                        <a class="btn btn-outline-light btn-sm" href="/orders/<%= o.id %>/refund">Request Refund</a>
+                        <button
+                          type="button"
+                          class="btn btn-outline-light btn-sm refund-open-btn"
+                          data-refund-url="/orders/<%= o.id %>/refund"
+                        >Request Refund</button>
                       </div>
                     <% } else { %>
                       <div class="mt-2">
@@ -197,5 +229,61 @@
       <% } %>
     </div>
   </main>
+  <!-- Refund notice modal (pre-refund) -->
+  <div class="modal fade" id="refundNoticeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content card-frosted">
+        <div class="modal-header border-0">
+          <h5 class="modal-title fw-semibold">Before You Request a Refund</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-3">
+            Refunds are credited to your <strong>PokeVault Pay</strong> wallet once approved.
+          </p>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="refundNoticeAgree">
+            <label class="form-check-label" for="refundNoticeAgree">
+              I understand and agree to receive the refund in PokeVault Pay.
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-cta" id="refundNoticeProceed" disabled>Proceed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const modalEl = document.getElementById('refundNoticeModal');
+      const agreeCheck = document.getElementById('refundNoticeAgree');
+      const proceedBtn = document.getElementById('refundNoticeProceed');
+      const openButtons = document.querySelectorAll('.refund-open-btn');
+      if (!modalEl || !agreeCheck || !proceedBtn || !openButtons.length) return;
+
+      const modal = new bootstrap.Modal(modalEl);
+      let targetUrl = '';
+
+      openButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          targetUrl = btn.getAttribute('data-refund-url') || '';
+          agreeCheck.checked = false;
+          proceedBtn.disabled = true;
+          modal.show();
+        });
+      });
+
+      agreeCheck.addEventListener('change', () => {
+        proceedBtn.disabled = !agreeCheck.checked;
+      });
+
+      proceedBtn.addEventListener('click', () => {
+        if (!agreeCheck.checked || !targetUrl) return;
+        window.location.href = targetUrl;
+      });
+    })();
+  </script>
 </body>
 </html>

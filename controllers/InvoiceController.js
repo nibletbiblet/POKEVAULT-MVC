@@ -7,6 +7,7 @@
  Date created: 1/2/2026
   */
 const Order = require('../models/Order');
+const BnplModel = require('../models/BnplModel');
 
 const GST_RATE = 0.09;
 const DELIVERY_RATE = 0.15;
@@ -31,12 +32,45 @@ exports.invoiceFromSession = (req, res) => {
     const promoInfo = paymentInfo && paymentInfo.promo ? paymentInfo.promo : null;
     const promoAmount = promoInfo ? Number(promoInfo.amount || 0) : 0;
     const breakdown = computeTotals(data.items, promoAmount);
-    res.render('invoice/session', {
-      user,
-      order: data.order,
-      items: data.items,
-      paymentInfo,
-      breakdown
+    const isBnpl = paymentInfo && typeof paymentInfo.method === 'string' && paymentInfo.method.startsWith('BNPL');
+    if (!isBnpl) {
+      return res.render('invoice/session', {
+        user,
+        order: data.order,
+        items: data.items,
+        paymentInfo,
+        breakdown,
+        bnplSummary: null
+      });
+    }
+
+    BnplModel.getInstallmentsByOrder(data.order.id, (bnplErr, installments) => {
+      if (bnplErr) {
+        console.error('Error loading BNPL installments:', bnplErr);
+      }
+      const parsedMonths = (() => {
+        const match = String(paymentInfo.method || '').match(/(\d+)/);
+        return match ? Number(match[1]) : null;
+      })();
+      const months = (installments && installments.length) ? installments.length : (parsedMonths || 0);
+      const total = Number(breakdown.total || data.order.total || 0);
+      const perMonth = months > 0 ? Number((total / months).toFixed(2)) : 0;
+      const paidToday = perMonth;
+      const remaining = Number((total - paidToday).toFixed(2));
+
+      return res.render('invoice/session', {
+        user,
+        order: data.order,
+        items: data.items,
+        paymentInfo,
+        breakdown,
+        bnplSummary: {
+          months,
+          perMonth,
+          paidToday,
+          remaining
+        }
+      });
     });
   });
 };

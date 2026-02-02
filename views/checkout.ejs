@@ -88,6 +88,27 @@ background-size: cover;
       color:#fff;
       text-transform:uppercase;
     }
+    .bnpl-plan {
+      display:flex;
+      gap:0.5rem;
+      flex-wrap:wrap;
+    }
+    .bnpl-plan label {
+      border:1px solid rgba(255,255,255,0.16);
+      background:rgba(255,255,255,0.06);
+      border-radius:0.6rem;
+      padding:0.5rem 0.75rem;
+      cursor:pointer;
+      font-weight:600;
+    }
+    .bnpl-plan input { margin-right:0.4rem; }
+    .bnpl-summary {
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.1);
+      border-radius:0.7rem;
+      padding:0.75rem;
+      margin-top:0.75rem;
+    }
   </style>
 </head>
 <body class="theme-gradient d-flex flex-column min-vh-100">
@@ -103,6 +124,7 @@ background-size: cover;
     const coinsBalanceLocal = typeof coinsBalance !== 'undefined' ? Number(coinsBalance) : 0;
     const coinsAppliedLocal = typeof coinsApplied !== 'undefined' ? Number(coinsApplied) : 0;
     const payableTotal = Math.max(0, localTotal - coinsAppliedLocal);
+    const bnplEnabled = payableTotal > 100;
     const itemCount = (cart || []).reduce((sum, item) => sum + item.quantity, 0);
   %>
   <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
@@ -226,7 +248,7 @@ background-size: cover;
               <div class="text-success small mt-1">Applied: -$<%= coinsAppliedLocal.toFixed(2) %></div>
             <% } %>
           </div>
-          <form method="POST" action="/checkout">
+          <form method="POST" action="/checkout" id="checkoutForm">
             <div class="mb-3">
               <div class="form-label mb-1">Name</div>
               <div class="fw-semibold"><%= user.username %></div>
@@ -259,6 +281,10 @@ background-size: cover;
                   <input type="radio" name="paymentMethod" value="wallet" <%= walletEnabled ? '' : 'disabled' %>>
                   <span>PokeVault Pay</span>
                 </label>
+                <label class="pill-choice <%= bnplEnabled ? '' : 'is-disabled' %>">
+                  <input type="radio" name="paymentMethod" value="bnpl" <%= bnplEnabled ? '' : 'disabled' %>>
+                  <span>BNPL</span>
+                </label>
                 <label class="pill-choice">
                   <input type="radio" name="paymentMethod" value="cash">
                   <span>Pay on Delivery</span>
@@ -266,6 +292,9 @@ background-size: cover;
               </div>
               <% if (!walletEnabled) { %>
                 <small class="text-white-50 d-block mt-2">Insufficient PokeVault Pay balance.</small>
+              <% } %>
+              <% if (!bnplEnabled) { %>
+                <small class="text-white-50 d-block mt-2">BNPL is available for orders above $100.</small>
               <% } %>
             </div>
             <div class="mb-3" id="paypal-section" style="display:none;">
@@ -296,6 +325,33 @@ background-size: cover;
               </div>
               <small class="text-white-50 d-block mt-2">You will be redirected to a NETS QR payment screen.</small>
             </div>
+            <div class="mb-3" id="bnpl-section" style="display:none;">
+              <div class="fw-semibold mb-2">Choose installment plan</div>
+              <div class="bnpl-plan">
+                <label>
+                  <input type="radio" name="bnplPlan" value="6" checked>
+                  6 months
+                </label>
+                <label>
+                  <input type="radio" name="bnplPlan" value="12">
+                  12 months
+                </label>
+              </div>
+              <div class="bnpl-summary">
+                <div class="d-flex justify-content-between">
+                  <span class="text-white-50">Total</span>
+                  <span>$<%= payableTotal.toFixed(2) %></span>
+                </div>
+                <div class="d-flex justify-content-between">
+                  <span class="text-white-50">Estimated per month</span>
+                  <span id="bnplMonthly">$0.00</span>
+                </div>
+              </div>
+              <div class="d-grid mt-3">
+                <button type="button" class="btn btn-cta" id="bnplContinueBtn">Continue with BNPL</button>
+              </div>
+              <small class="text-white-50 d-block mt-2">You will set up a BNPL card if you have not done so before.</small>
+            </div>
             <div class="d-grid">
               <button type="submit" class="btn btn-cta" id="placeOrderBtn">Place Order</button>
             </div>
@@ -316,9 +372,16 @@ background-size: cover;
       const paypalSection = document.getElementById('paypal-section');
       const stripeSection = document.getElementById('stripe-section');
       const walletSection = document.getElementById('wallet-section');
+      const bnplSection = document.getElementById('bnpl-section');
       const placeOrderBtn = document.getElementById('placeOrderBtn');
       const stripeCheckoutBtn = document.getElementById('stripeCheckoutBtn');
+      const bnplContinueBtn = document.getElementById('bnplContinueBtn');
+      const bnplMonthly = document.getElementById('bnplMonthly');
+      const bnplPlanRadios = Array.from(document.querySelectorAll('input[name="bnplPlan"]'));
       const addressInput = document.querySelector('textarea[name="address"]');
+      const checkoutForm = document.getElementById('checkoutForm');
+      const payableTotal = Number("<%= payableTotal.toFixed(2) %>");
+      const bnplEnabled = <%= bnplEnabled ? 'true' : 'false' %>;
 
       const updatePaymentUI = () => {
         const selected = paymentRadios.find(radio => radio.checked);
@@ -326,11 +389,13 @@ background-size: cover;
         const isPaypal = selected && selected.value === 'paypal';
         const isStripe = selected && selected.value === 'stripe';
         const isWallet = selected && selected.value === 'wallet';
+        const isBnpl = bnplEnabled && selected && selected.value === 'bnpl';
         const showPlaceOrder = selected && selected.value === 'cash';
         if (netsSection) netsSection.style.display = isNets ? 'block' : 'none';
         if (paypalSection) paypalSection.style.display = isPaypal ? 'block' : 'none';
         if (stripeSection) stripeSection.style.display = isStripe ? 'block' : 'none';
         if (walletSection) walletSection.style.display = isWallet ? 'block' : 'none';
+        if (bnplSection) bnplSection.style.display = isBnpl ? 'block' : 'none';
         if (placeOrderBtn) placeOrderBtn.style.display = showPlaceOrder ? '' : 'none';
       };
 
@@ -338,6 +403,33 @@ background-size: cover;
         radio.addEventListener('change', updatePaymentUI);
       });
       updatePaymentUI();
+
+      const updateBnplMonthly = () => {
+        if (!bnplMonthly) return;
+        const selectedPlan = bnplPlanRadios.find(r => r.checked);
+        const months = selectedPlan ? Number(selectedPlan.value) : 6;
+        const perMonth = months > 0 ? (payableTotal / months) : payableTotal;
+        bnplMonthly.textContent = `$${perMonth.toFixed(2)}`;
+      };
+
+      bnplPlanRadios.forEach(radio => {
+        radio.addEventListener('change', updateBnplMonthly);
+      });
+      updateBnplMonthly();
+
+      if (bnplContinueBtn) {
+        bnplContinueBtn.addEventListener('click', () => {
+          const selectedPayment = paymentRadios.find(radio => radio.value === 'bnpl');
+          if (selectedPayment) selectedPayment.checked = true;
+          if (checkoutForm) {
+            checkoutForm.requestSubmit();
+          } else {
+            const selectedPlan = bnplPlanRadios.find(r => r.checked);
+            const months = selectedPlan ? selectedPlan.value : '6';
+            window.location.href = `/bnpl/card?plan=${months}`;
+          }
+        });
+      }
 
       if (stripeCheckoutBtn) {
         stripeCheckoutBtn.addEventListener('click', async () => {

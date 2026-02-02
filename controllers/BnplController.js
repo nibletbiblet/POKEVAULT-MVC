@@ -64,9 +64,16 @@ function finalizeBnplCheckout(req, res, planMonths, paypalCaptureId, onComplete)
             }
             const paidNow = Math.round((netAmount / Math.max(planMonths, 1)) * 100) / 100;
             creditCoins(req.session.user.id, paidNow, () => {
+              req.session.orderPayments = req.session.orderPayments || {};
+              req.session.orderPayments[orderId] = {
+                method: 'BNPL',
+                promo: req.session.promoCode ? { code: req.session.promoCode, amount: req.session.promoAmount || 0 } : null
+              };
               req.session.lastOrderId = orderId;
               req.session.toPayOrderId = null;
               req.session.coinsApplied = 0;
+              req.session.promoCode = null;
+              req.session.promoAmount = null;
               req.session.save(() => onComplete());
             });
           });
@@ -78,7 +85,18 @@ function finalizeBnplCheckout(req, res, planMonths, paypalCaptureId, onComplete)
 
 exports.bnplCheckout = (req, res) => {
   const planMonths = Number(req.body.planMonths || 3);
-  finalizeBnplCheckout(req, res, planMonths, null, () => res.redirect('/invoice/session'));
+  const userId = req.session.user.id;
+  BnplCardModel.getByUserId(userId, (err, bnplCard) => {
+    if (err) {
+      console.error(err);
+      req.flash('error', 'Failed to load BNPL card.');
+      return res.redirect('/checkout');
+    }
+    if (!bnplCard) {
+      return res.redirect(`/bnpl/card?plan=${planMonths}`);
+    }
+    finalizeBnplCheckout(req, res, planMonths, null, () => res.redirect('/invoice/session'));
+  });
 };
 
 exports.bnplPaypalCreate = async (req, res) => {
@@ -146,7 +164,10 @@ exports.cardInfoPage = (req, res) => {
         user,
         planMonths,
         grandTotal,
-        bnplCard
+        bnplCard,
+        messages: req.flash('error'),
+        success: req.flash('success'),
+        sandboxOtp: BNPL_FIXED_OTP
       });
     });
   });
@@ -154,9 +175,10 @@ exports.cardInfoPage = (req, res) => {
 
 exports.cardSetup = (req, res) => {
   const userId = req.session.user.id;
-  const { cardNumber, cardCvv, cardName, cardExpiry, billingAddress, otp } = req.body;
+  const { cardNumber, cardCvv, cardName, cardExpiry, billingAddress, otp, bankProvider } = req.body;
+  const planMonths = Number(req.body.planMonths || 6);
 
-  if (!cardNumber || !cardCvv || !cardName || !cardExpiry || !billingAddress) {
+  if (!cardNumber || !cardCvv || !cardName || !cardExpiry || !billingAddress || !bankProvider) {
     req.flash('error', 'Please complete your card and billing details.');
     return res.redirect('/bnpl/card');
   }
@@ -194,7 +216,7 @@ exports.cardSetup = (req, res) => {
       }
 
       req.flash('success', 'BNPL card setup successful.');
-      res.redirect('/checkout');
+      finalizeBnplCheckout(req, res, planMonths, null, () => res.redirect('/invoice/session'));
     }
   );
 };
@@ -213,6 +235,19 @@ exports.cardValidate = (req, res) => {
   }
 
   return res.json({ ok: true });
+};
+
+exports.cardCancel = (req, res) => {
+  const userId = req.session.user.id;
+  BnplCardModel.deleteByUserId(userId, (err) => {
+    if (err) {
+      console.error(err);
+      req.flash('error', 'Failed to cancel BNPL setup.');
+    } else {
+      req.flash('success', 'BNPL card setup cancelled.');
+    }
+    res.redirect('/checkout');
+  });
 };
 
 exports.schedulePage = (req, res) => {

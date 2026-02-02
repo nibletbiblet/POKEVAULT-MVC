@@ -37,6 +37,14 @@
     .item-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 0.45rem; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
     .input-ghost { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #fff; }
     .input-ghost:focus { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.32); box-shadow: 0 0 0 0.2rem rgba(255,255,255,0.12); }
+    .input-ghost::placeholder { color: rgba(255,255,255,0.55); }
+    .input-ghost option { background-color: #2b354a; color: #ffffff; }
+    .input-ghost option:checked { background-color: #3c4b66; color: #ffffff; }
+    /* Keep dropdown options readable on dark theme */
+    select.input-ghost option {
+      background-color: #2b354a;
+      color: #ffffff;
+    }
     .btn-cta { background:#ffffff; color:#000 !important; font-weight:600; letter-spacing:.02em; border-radius:0.45rem; border:1px solid rgba(255,255,255,0.12); padding:0.65rem 1rem; font-size:1rem; transition:160ms ease-in-out; }
     .btn-cta:hover { transform: translateY(-2px); background:#f1f1f1; }
   </style>
@@ -78,11 +86,15 @@
       <form method="POST" action="/orders/<%= order.id %>/refund">
         <div class="mb-3">
           <label class="form-label fw-semibold">Reason</label>
-          <select class="form-select input-ghost" name="reason" required>
+          <select class="form-select input-ghost" name="reason" id="refundReason" required>
             <option value="RECEIVED_ISSUE" <%= reason === 'RECEIVED_ISSUE' ? 'selected' : '' %>>Item damaged or wrong</option>
             <option value="MISSING_ITEMS" <%= reason === 'MISSING_ITEMS' ? 'selected' : '' %>>Missing items</option>
             <option value="OTHER" <%= reason === 'OTHER' ? 'selected' : '' %>>Other</option>
           </select>
+        </div>
+        <div class="mb-3" id="otherReasonWrap" style="display:none;">
+          <label class="form-label fw-semibold">Other reason</label>
+          <input class="form-control input-ghost" type="text" name="otherReason" id="otherReasonInput" placeholder="Please specify the reason" maxlength="120">
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold">Description</label>
@@ -95,5 +107,24 @@
       </form>
     </div>
   </main>
+  <script>
+    (function () {
+      const reasonSelect = document.getElementById('refundReason');
+      const otherWrap = document.getElementById('otherReasonWrap');
+      const otherInput = document.getElementById('otherReasonInput');
+
+      const syncOtherReason = () => {
+        const isOther = reasonSelect && reasonSelect.value === 'OTHER';
+        if (otherWrap) otherWrap.style.display = isOther ? 'block' : 'none';
+        if (otherInput) otherInput.required = isOther;
+        if (!isOther && otherInput) otherInput.value = '';
+      };
+
+      if (reasonSelect) {
+        reasonSelect.addEventListener('change', syncOtherReason);
+        syncOtherReason();
+      }
+    })();
+  </script>
 </body>
 </html>

@@ -143,6 +143,7 @@ const OrderController = {
     const user = req.session.user;
     const address = (req.body.address || '').trim();
     const paymentMethod = req.body.paymentMethod || 'card';
+    const bnplPlanMonths = Number(req.body.bnplPlan || 6);
     const cardName = (req.body.cardName || '').trim();
     const cardNumberRaw = (req.body.cardNumber || '').replace(/\D/g, '');
     const cardLast4 = cardNumberRaw ? cardNumberRaw.slice(-4) : null;
@@ -199,6 +200,10 @@ const OrderController = {
           });
         };
 
+        if (paymentMethod === 'bnpl') {
+          req.session.toPayOrderId = resumeOrderId;
+          return req.session.save(() => res.redirect(`/bnpl/card?plan=${bnplPlanMonths}`));
+        }
         if (paymentMethod === 'cash') {
           return completePayment(Number(existingOrder.total));
         }
@@ -269,6 +274,14 @@ const OrderController = {
           });
         };
 
+        if (paymentMethod === 'bnpl') {
+          Order.updateStatus(result.orderId, 'TO_PAY', () => {
+            req.session.toPayOrderId = result.orderId;
+            req.session.lastOrderId = result.orderId;
+            req.session.save(() => res.redirect(`/bnpl/card?plan=${bnplPlanMonths}`));
+          });
+          return;
+        }
         if (paymentMethod === 'cash') {
           return completePayment(totals.total);
         }
@@ -865,22 +878,55 @@ const OrderController = {
         req.flash('error', 'Receipt is available after payment is completed.');
         return res.redirect('/purchases?tab=TO_PAY');
       }
-      const paymentInfo = (req.session.orderPayments && req.session.orderPayments[data.order.id]) || null;
-      const promoInfo = paymentInfo && paymentInfo.promo ? paymentInfo.promo : null;
-      const promoAmount = promoInfo ? Number(promoInfo.amount || 0) : 0;
-      const subtotal = data.items.reduce((sum, it) => sum + Number(it.price) * Number(it.quantity), 0);
-      const taxableBase = Math.max(0, subtotal - promoAmount);
-      const gstRate = GST_RATE;
-      const deliveryRate = DELIVERY_RATE;
-      const gst = Number((taxableBase * gstRate).toFixed(2));
-      const deliveryFee = Number((taxableBase * deliveryRate).toFixed(2));
-      const total = Number((taxableBase + gst + deliveryFee).toFixed(2));
-      res.render('orderDetail', {
-        order: data.order,
-        items: data.items,
-        user,
-        paymentInfo,
-        breakdown: { subtotal, gstRate, deliveryRate, gst, deliveryFee, total, promoAmount, promoCode: promoInfo ? promoInfo.code : null }
+      const basePaymentInfo = (req.session.orderPayments && req.session.orderPayments[data.order.id]) || null;
+      const loadPaymentInfo = (cb) => {
+        if (basePaymentInfo) return cb(null, basePaymentInfo);
+        const sql = `
+          SELECT paymentMethod, paymentReference
+          FROM transactions
+          WHERE orderId = ?
+          ORDER BY id DESC
+          LIMIT 1
+        `;
+        db.query(sql, [orderId], (txErr, rows) => {
+          if (txErr || !rows || !rows.length) {
+            const bnplSql = `
+              SELECT COUNT(*) AS total
+              FROM bnpl_installments
+              WHERE order_id = ?
+            `;
+            return db.query(bnplSql, [orderId], (bnplErr, bnplRows) => {
+              if (bnplErr || !bnplRows || !bnplRows.length) return cb(null, null);
+              const isBnpl = Number(bnplRows[0].total || 0) > 0;
+              if (!isBnpl) return cb(null, null);
+              return cb(null, { method: 'BNPL' });
+            });
+          }
+          const row = rows[0];
+          cb(null, {
+            method: row.paymentMethod || 'Payment captured',
+            reference: row.paymentReference || null
+          });
+        });
+      };
+
+      loadPaymentInfo((_, paymentInfo) => {
+        const promoInfo = paymentInfo && paymentInfo.promo ? paymentInfo.promo : null;
+        const promoAmount = promoInfo ? Number(promoInfo.amount || 0) : 0;
+        const subtotal = data.items.reduce((sum, it) => sum + Number(it.price) * Number(it.quantity), 0);
+        const taxableBase = Math.max(0, subtotal - promoAmount);
+        const gstRate = GST_RATE;
+        const deliveryRate = DELIVERY_RATE;
+        const gst = Number((taxableBase * gstRate).toFixed(2));
+        const deliveryFee = Number((taxableBase * deliveryRate).toFixed(2));
+        const total = Number((taxableBase + gst + deliveryFee).toFixed(2));
+        res.render('orderDetail', {
+          order: data.order,
+          items: data.items,
+          user,
+          paymentInfo,
+          breakdown: { subtotal, gstRate, deliveryRate, gst, deliveryFee, total, promoAmount, promoCode: promoInfo ? promoInfo.code : null }
+        });
       });
     });
   }
