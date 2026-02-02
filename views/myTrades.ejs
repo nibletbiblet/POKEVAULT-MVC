@@ -324,7 +324,7 @@
                     <div class="trade-card">
                       <div class="d-flex justify-content-between align-items-center mb-2">
                         <div>
-                          <div class="fw-semibold"><%= t.initiatorProductName || 'Card #' + t.initiator_product_id %></div>
+                          <div class="fw-semibold"><%= t.initiator_card_name || t.initiatorProductName || 'Card #' + t.initiator_product_id %></div>
                           <small class="text-white-50">Offered by <%= t.initiatorUsername || ('user #' + t.initiator_id) %></small>
                         </div>
                         <span class="pill pill-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span>
@@ -366,8 +366,8 @@
                   <% pendingTrades.forEach(t => { %>
                     <% const isOwner = t.initiator_id === user.id; %>
                     <% const isResponder = t.responder_id === user.id; %>
-                    <% const ownerCard = t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
-                    <% const responderCard = t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null; %>
+                    <% const ownerCard = t.initiator_card_name || t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
+                    <% const responderCard = t.responder_card_name || (t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null); %>
                     <% const ownerLabel = isOwner ? 'You' : (t.initiatorUsername || ('User #' + t.initiator_id)); %>
                     <% const responderLabel = isResponder ? 'You' : (t.responderUsername || (t.responder_id ? ('User #' + t.responder_id) : '')); %>
                     <div class="trade-card">
@@ -426,8 +426,8 @@
               <% acceptedTrades.forEach(t => { %>
                 <% const isOwner = t.initiator_id === user.id; %>
                 <% const isResponder = t.responder_id === user.id; %>
-                <% const ownerCard = t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
-                <% const responderCard = t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null; %>
+                <% const ownerCard = t.initiator_card_name || t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
+                <% const responderCard = t.responder_card_name || (t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null); %>
                 <% const ownerLabel = isOwner ? 'You' : (t.initiatorUsername || ('User #' + t.initiator_id)); %>
                 <% const responderLabel = isResponder ? 'You' : (t.responderUsername || (t.responder_id ? ('User #' + t.responder_id) : '')); %>
                 <div class="trade-card">

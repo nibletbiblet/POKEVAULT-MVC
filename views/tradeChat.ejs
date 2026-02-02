@@ -211,8 +211,8 @@
           <div class="carousel-inner">
             <% acceptedTrades.forEach((t, idx) => { %>
               <% const isOwner = t.initiator_id === user.id; %>
-              <% const ownerCard = t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
-              <% const responderCard = t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null; %>
+              <% const ownerCard = t.initiator_card_name || t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
+              <% const responderCard = t.responder_card_name || (t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null); %>
               <% const partnerName = isOwner ? (t.responderUsername || ('User #' + t.responder_id)) : (t.initiatorUsername || ('User #' + t.initiator_id)); %>
               <div class="carousel-item <%= idx === 0 ? 'active' : '' %>">
                 <div class="chat-panel" data-trade-id="<%= t.id %>">

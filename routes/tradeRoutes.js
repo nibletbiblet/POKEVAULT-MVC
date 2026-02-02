@@ -1,15 +1,15 @@
 const express = require('express');
 const TradeController = require('../controllers/TradeController');
 const { requireAuth } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 const router = express.Router();
 
 router.get('/trades', requireAuth, TradeController.list);
-router.get('/trades/image-search', requireAuth, TradeController.imageSearch);
 router.get('/my-trades', requireAuth, TradeController.myTradesPage);
 router.get('/trade-chat', requireAuth, TradeController.chatPage);
 router.get('/trades/all', requireAuth, TradeController.listAll);
-router.post('/trades', requireAuth, TradeController.create);
+router.post('/trades', requireAuth, upload.single('cardImage'), TradeController.create);
 router.post('/trades/:id/offer', requireAuth, TradeController.offer);
 router.post('/trades/:id/accept', requireAuth, TradeController.accept);
 router.post('/trades/:id/decline', requireAuth, TradeController.decline);

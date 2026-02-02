@@ -193,65 +193,13 @@
       padding: 1rem;
     }
     .trade-form .form-label { font-size: 0.8rem; }
-    .image-search-panel {
+    .image-upload-panel {
       margin-top: 1rem;
       padding: 0.9rem;
       border-radius: 0.8rem;
       border: 1px solid rgba(255,255,255,0.08);
       background: rgba(255,255,255,0.02);
     }
-    .image-search-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 0.7rem;
-      margin-top: 0.6rem;
-    }
-    .image-card {
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.04);
-      border-radius: 0.7rem;
-      overflow: hidden;
-      padding: 0;
-      color: #e9ecef;
-      text-align: left;
-      transition: transform 0.15s ease, border-color 0.15s ease;
-    }
-    .image-card:hover {
-      transform: translateY(-1px);
-      border-color: rgba(88,166,255,0.5);
-    }
-    .image-card img {
-      width: 100%;
-      height: 140px;
-      object-fit: cover;
-      display: block;
-    }
-    .image-card span {
-      display: block;
-      padding: 0.4rem 0.55rem;
-      font-size: 0.72rem;
-      color: rgba(233,236,239,0.8);
-    }
-    .image-card.is-selected {
-      border-color: rgba(88,166,255,0.75);
-      box-shadow: 0 0 0 1px rgba(88,166,255,0.25);
-    }
-    .image-selected {
-      margin-top: 0.75rem;
-      display: flex;
-      gap: 0.8rem;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .image-selected img {
-      width: 96px;
-      height: 128px;
-      object-fit: cover;
-      border-radius: 0.6rem;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-    .image-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-    .image-meta { font-size: 0.75rem; color: rgba(233,236,239,0.7); }
     .image-status { font-size: 0.75rem; margin-top: 0.4rem; min-height: 1.1rem; }
     .trade-kicker {
       text-transform: uppercase;
@@ -489,10 +437,10 @@
               <h5 class="mb-0 section-title">Offer your card</h5>
             </div>
           </div>
-          <form action="/trades" method="POST" class="row g-3 trade-form">
+          <form action="/trades" method="POST" enctype="multipart/form-data" class="row g-3 trade-form">
             <div class="col-md-6">
-              <label class="form-label text-white-50">Card you are offering</label>
-              <select class="form-select" name="productId" required>
+              <label class="form-label text-white-50">Card you are offering (catalog)</label>
+              <select class="form-select" name="productId">
                 <option value="">Select a card</option>
                 <% products.forEach(p => { %>
                   <option value="<%= p.id %>"><%= p.productName %></option>
@@ -503,36 +451,27 @@
               <label class="form-label text-white-50">Note (optional)</label>
               <input class="form-control" name="note" maxlength="255" placeholder="Add details or conditions">
             </div>
+            <div class="col-12">
+              <div class="image-upload-panel">
+                <div class="trade-kicker mb-2">Upload your own card (optional)</div>
+                <p class="trade-meta mb-2">If you upload a photo, it will be used instead of the catalog selection.</p>
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="form-label text-white-50">Card name (required if uploading)</label>
+                    <input class="form-control" name="cardName" maxlength="120" placeholder="Charizard VMAX">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-white-50">Card photo</label>
+                    <input class="form-control" type="file" name="cardImage" accept="image/*">
+                  </div>
+                </div>
+                <div class="image-status text-white-50">JPG/PNG recommended. Keep it well lit and centered.</div>
+              </div>
+            </div>
             <div class="col-12 d-flex justify-content-end">
               <button type="submit" class="btn btn-glow">Post trade</button>
             </div>
           </form>
-          <div class="image-search-panel">
-            <div class="trade-kicker mb-2">Card image search</div>
-            <p class="trade-meta mb-2">Search by card name and version (ex: Charizard Japanese). Results come from the web and are not stored.</p>
-            <form id="trade-image-search-form" class="row g-2 align-items-end">
-              <div class="col-md-8">
-                <label class="form-label text-white-50" for="trade-image-query">Card name + version</label>
-                <input class="form-control" id="trade-image-query" type="text" placeholder="Charizard Japanese" autocomplete="off">
-              </div>
-              <div class="col-md-4 d-grid">
-                <button class="btn btn-ghost" type="submit">Search images</button>
-              </div>
-            </form>
-            <div class="image-status text-white-50" id="trade-image-status" role="status" aria-live="polite"></div>
-            <div class="image-search-grid" id="trade-image-results"></div>
-            <div class="image-selected d-none" id="trade-image-selected">
-              <img id="trade-image-selected-img" src="" alt="Selected card preview" loading="lazy">
-              <div>
-                <div class="fw-semibold">Selected image</div>
-                <div class="image-meta" id="trade-image-selected-title"></div>
-                <div class="image-actions mt-2">
-                  <a class="btn btn-outline-light btn-sm" href="#" id="trade-image-selected-link" target="_blank" rel="noopener">Open source</a>
-                  <button class="btn btn-ghost btn-sm" type="button" id="trade-image-copy">Copy image URL</button>
-                </div>
-              </div>
-            </div>
-          </div>
           <div class="soft-divider"></div>
           <div class="row g-3">
             <div class="col-md-6">
@@ -581,112 +520,5 @@
       <small class="small">© <%= new Date().getFullYear() %> PokeVault. All rights reserved.</small>
     </div>
   </footer>
-  <script>
-    (() => {
-      const form = document.getElementById('trade-image-search-form');
-      if (!form) return;
-      const queryInput = document.getElementById('trade-image-query');
-      const status = document.getElementById('trade-image-status');
-      const results = document.getElementById('trade-image-results');
-      const selectedWrap = document.getElementById('trade-image-selected');
-      const selectedImg = document.getElementById('trade-image-selected-img');
-      const selectedTitle = document.getElementById('trade-image-selected-title');
-      const selectedLink = document.getElementById('trade-image-selected-link');
-      const copyButton = document.getElementById('trade-image-copy');
-      let selectedButton = null;
-      let selectedUrl = '';
-
-      const setStatus = (text, isError = false) => {
-        status.textContent = text || '';
-        status.classList.toggle('text-danger', isError);
-      };
-
-      const renderResults = (images) => {
-        results.innerHTML = '';
-        if (!images.length) return;
-        images.forEach((image) => {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'image-card';
-          button.dataset.imageLink = image.link;
-          button.dataset.imageThumb = image.thumbnail || image.link;
-          button.dataset.imageTitle = image.title || 'Pokemon card';
-
-          const img = document.createElement('img');
-          img.src = image.thumbnail || image.link;
-          img.alt = image.title || 'Pokemon card';
-          img.loading = 'lazy';
-
-          const caption = document.createElement('span');
-          caption.textContent = image.title || 'Pokemon card';
-
-          button.appendChild(img);
-          button.appendChild(caption);
-          results.appendChild(button);
-        });
-      };
-
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const rawQuery = queryInput.value.trim();
-        if (!rawQuery) {
-          setStatus('Enter a card name to search.', true);
-          return;
-        }
-        const query = /pokemon/i.test(rawQuery) ? rawQuery : `${rawQuery} pokemon card`;
-        setStatus('Searching...');
-        results.innerHTML = '';
-        selectedWrap.classList.add('d-none');
-        selectedUrl = '';
-        if (selectedButton) {
-          selectedButton.classList.remove('is-selected');
-          selectedButton = null;
-        }
-        try {
-          const response = await fetch(`/trades/image-search?q=${encodeURIComponent(query)}`);
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok || !data.ok) {
-            throw new Error(data.error || 'Search failed.');
-          }
-          renderResults(data.images || []);
-          if (data.images && data.images.length) {
-            setStatus('Select an image to preview.');
-          } else {
-            setStatus('No images found. Try another search.');
-          }
-        } catch (err) {
-          setStatus(err.message || 'Search failed.', true);
-        }
-      });
-
-      results.addEventListener('click', (event) => {
-        const button = event.target.closest('.image-card');
-        if (!button) return;
-        if (selectedButton) selectedButton.classList.remove('is-selected');
-        button.classList.add('is-selected');
-        selectedButton = button;
-        selectedUrl = button.dataset.imageLink || '';
-        const thumb = button.dataset.imageThumb || selectedUrl;
-        const title = button.dataset.imageTitle || 'Pokemon card';
-        selectedImg.src = thumb;
-        selectedImg.alt = title;
-        selectedTitle.textContent = title;
-        selectedLink.href = selectedUrl || '#';
-        selectedWrap.classList.remove('d-none');
-      });
-
-      if (copyButton) {
-        copyButton.addEventListener('click', async () => {
-          if (!selectedUrl) return;
-          try {
-            await navigator.clipboard.writeText(selectedUrl);
-            setStatus('Image URL copied to clipboard.');
-          } catch (err) {
-            setStatus('Unable to copy. Please copy the link manually.', true);
-          }
-        });
-      }
-    })();
-  </script>
 </body>
 </html>

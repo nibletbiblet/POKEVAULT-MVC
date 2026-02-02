@@ -3,7 +3,9 @@
  * Table schema expected:
  *   id INT PK AI,
  *   initiator_id INT NOT NULL,
- *   initiator_product_id INT NOT NULL,
+ *   initiator_product_id INT NULL,
+ *   initiator_card_name VARCHAR(255) NULL,
+ *   initiator_card_image VARCHAR(255) NULL,
  *   responder_id INT NULL,
  *   responder_product_id INT NULL,
  *   status ENUM('open','pending_initiator','accepted','declined','cancelled') DEFAULT 'open',
@@ -15,9 +17,22 @@
 const db = require('../db');
 
 const Trade = {
-  create({ initiatorId, initiatorProductId, note }, callback) {
-    const sql = 'INSERT INTO trades (initiator_id, initiator_product_id, note) VALUES (?, ?, ?)';
-    db.query(sql, [initiatorId, initiatorProductId, note || null], (err, result) => callback(err, result));
+  create({ initiatorId, initiatorProductId, initiatorCardName, initiatorCardImage, note }, callback) {
+    const sql = `
+      INSERT INTO trades (initiator_id, initiator_product_id, initiator_card_name, initiator_card_image, note)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    db.query(
+      sql,
+      [
+        initiatorId,
+        initiatorProductId || null,
+        initiatorCardName || null,
+        initiatorCardImage || null,
+        note || null
+      ],
+      (err, result) => callback(err, result)
+    );
   },
 
   findById(id, callback) {

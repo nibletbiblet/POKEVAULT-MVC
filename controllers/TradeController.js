@@ -60,58 +60,31 @@ const TradeController = {
     }
   },
 
-  async imageSearch(req, res) {
-    const query = (req.query.q || '').trim();
-    if (!query) {
-      return res.status(400).json({ ok: false, error: 'Search query is required.' });
-    }
-    if (query.length > 120) {
-      return res.status(400).json({ ok: false, error: 'Search query is too long.' });
-    }
-    const apiKey = process.env.GOOGLE_CSE_API_KEY || process.env.GOOGLE_API_KEY;
-    const searchEngineId = process.env.GOOGLE_CSE_ID;
-    if (!apiKey || !searchEngineId) {
-      return res.status(503).json({ ok: false, error: 'Image search is not configured.' });
-    }
-    const tunedQuery = /pokemon/i.test(query) ? query : `${query} pokemon card`;
-    const params = new URLSearchParams({
-      key: apiKey,
-      cx: searchEngineId,
-      searchType: 'image',
-      safe: 'active',
-      num: '8',
-      q: tunedQuery
-    });
-    const url = `https://www.googleapis.com/customsearch/v1?${params.toString()}`;
-    try {
-      const response = await fetch(url);
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const message = payload?.error?.message || 'Image search failed.';
-        return res.status(502).json({ ok: false, error: message });
-      }
-      const images = (payload.items || []).map((item) => ({
-        title: item.title || 'Pokemon card',
-        link: item.link,
-        thumbnail: item.image?.thumbnailLink || item.link,
-        contextLink: item.image?.contextLink || item.link
-      }));
-      return res.json({ ok: true, images });
-    } catch (err) {
-      console.error('Error searching images:', err);
-      return res.status(502).json({ ok: false, error: 'Image search failed.' });
-    }
-  },
-
   async create(req, res) {
     const user = req.session.user;
-    const { productId, note } = req.body;
-    if (!productId) {
-      req.flash('error', 'Select a card to offer.');
+    const { productId, note, cardName } = req.body;
+    const trimmedName = (cardName || '').trim();
+    const uploadedImage = req.file ? req.file.filename : null;
+    const hasUpload = Boolean(uploadedImage);
+    if (hasUpload && !trimmedName) {
+      req.flash('error', 'Card name is required when uploading a photo.');
       return res.redirect('/trades');
     }
+    if (!hasUpload && !productId) {
+      req.flash('error', 'Select a card or upload your own photo.');
+      return res.redirect('/trades');
+    }
+    const initiatorProductId = hasUpload ? null : productId;
+    const initiatorCardName = hasUpload ? trimmedName.slice(0, 120) : null;
+    const initiatorCardImage = hasUpload ? uploadedImage : null;
     try {
-      const result = await toPromise(Trade.create, { initiatorId: user.id, initiatorProductId: productId, note });
+      const result = await toPromise(Trade.create, {
+        initiatorId: user.id,
+        initiatorProductId,
+        initiatorCardName,
+        initiatorCardImage,
+        note
+      });
       const tradeId = result && result.insertId ? result.insertId : null;
       await toPromise(Notification.createGlobal, {
         type: 'trade_posted',

@@ -87,14 +87,15 @@
               <% trades.forEach(t => { %>
                 <% const updated = t.updated_at ? new Date(t.updated_at) : null; %>
                 <% const responderName = t.responderUsername || (t.responder_id ? ('User #' + t.responder_id) : 'Awaiting offer'); %>
-                <% const responderCard = t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : 'No offer yet'; %>
+                <% const ownerCard = t.initiator_card_name || t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
+                <% const responderCard = t.responder_card_name || (t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : 'No offer yet'); %>
                 <tr>
                   <td class="fw-semibold">#<%= t.id %></td>
                   <td>
                     <div><%= t.initiatorUsername || ('User #' + t.initiator_id) %></div>
                     <div class="text-white-50 small">User ID: <%= t.initiator_id %></div>
                   </td>
-                  <td><%= t.initiatorProductName || ('Card #' + t.initiator_product_id) %></td>
+                  <td><%= ownerCard %></td>
                   <td>
                     <div><%= responderName %></div>
                     <% if (t.responder_id) { %>
