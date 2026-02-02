@@ -1,3 +1,11 @@
+/* I will not copy or allow others to copy my code. 
+ I understand that copying code is considered as plagiarism.
+ 
+ Student Name: NGJINHENG ,nate
+ Student ID: 24024323 ,24025215
+ Class: C372-003-E63C
+ Date created: 1/2/2026
+  */
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Transaction = require('../models/Transaction');

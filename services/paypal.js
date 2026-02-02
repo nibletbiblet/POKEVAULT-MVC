@@ -1,3 +1,11 @@
+/* I will not copy or allow others to copy my code. 
+ I understand that copying code is considered as plagiarism.
+ 
+ Student Name: NGJINHENG 
+ Student ID: 24024323 
+ Class: C372-003-E63C
+ Date created: 1/2/2026
+  */
 const fetch = (...args) =>
   import('node-fetch').then(({ default: fetchFn }) => fetchFn(...args));
 require('dotenv').config();
