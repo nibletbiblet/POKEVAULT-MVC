@@ -10,9 +10,17 @@ const db = require('../db');
 const paypal = require('../services/paypal');
 const netsQr = require('../services/nets');
 const WalletModel = require('../models/WalletModel');
+const Stripe = require('stripe');
 
 const BONUS_THRESHOLD = 100;
 const BONUS_AMOUNT = 5;
+const STRIPE_SECRET =
+  process.env.STRIPE_SECRET_KEY ||
+  process.env.STRIPE_SECRET ||
+  process.env['Stripe.apiKey'];
+const stripe = STRIPE_SECRET ? Stripe(STRIPE_SECRET) : null;
+
+const buildBaseUrl = (req) => `${req.protocol}://${req.get('host')}`;
 
 const computeBonus = (amount) => (amount >= BONUS_THRESHOLD ? BONUS_AMOUNT : 0);
 
@@ -148,6 +156,154 @@ exports.topupPaypalCapture = async (req, res) => {
     console.error(err);
     return res.status(500).json({ error: 'Wallet top-up failed' });
   }
+};
+
+exports.topupStripeCreateSession = async (req, res) => {
+  const topup = req.session.walletTopup;
+  const user = req.session.user;
+  if (!stripe) {
+    return res.status(500).json({ error: 'Stripe is not configured.' });
+  }
+  if (!topup) {
+    return res.status(400).json({ error: 'Invalid top-up session' });
+  }
+  const amount = Number(topup.amount || 0);
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ error: 'Invalid top-up amount' });
+  }
+
+  const paymentMethodsRaw = (process.env.STRIPE_PAYMENT_METHODS || '').trim();
+  const paymentMethodsLower = paymentMethodsRaw.toLowerCase();
+  const paymentMethodTypes = paymentMethodsRaw && !['auto', 'all', 'default'].includes(paymentMethodsLower)
+    ? paymentMethodsRaw.split(',').map((val) => val.trim()).filter(Boolean)
+    : null;
+
+  try {
+    const sessionParams = {
+      mode: 'payment',
+      line_items: [
+        {
+          price_data: {
+            currency: 'sgd',
+            product_data: {
+              name: 'PokeVault Pay Top-Up',
+              description: topup.bonus ? `Bonus +$${Number(topup.bonus).toFixed(2)}` : undefined
+            },
+            unit_amount: Math.round(amount * 100)
+          },
+          quantity: 1
+        }
+      ],
+      success_url: `${buildBaseUrl(req)}/wallet/topup/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${buildBaseUrl(req)}/wallet/topup/stripe/cancel`,
+      customer_email: user.email || undefined,
+      client_reference_id: String(user.id),
+      metadata: {
+        userId: String(user.id),
+        topupAmount: String(topup.amount || 0),
+        bonus: String(topup.bonus || 0),
+        totalCoins: String(topup.totalCoins || 0)
+      }
+    };
+    if (paymentMethodTypes && paymentMethodTypes.length) {
+      sessionParams.payment_method_types = paymentMethodTypes;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+    return res.json({ id: session.id, url: session.url });
+  } catch (err) {
+    console.error('Stripe top-up session error:', err);
+    return res.status(500).json({ error: 'Failed to start Stripe checkout.' });
+  }
+};
+
+exports.topupStripeSuccess = async (req, res) => {
+  const user = req.session.user;
+  const sessionId = req.query.session_id;
+  if (!stripe) {
+    req.flash('error', 'Stripe is not configured.');
+    return res.redirect('/wallet/topup');
+  }
+  if (!sessionId) {
+    req.flash('error', 'Missing Stripe session.');
+    return res.redirect('/wallet/topup');
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (!session || session.payment_status !== 'paid') {
+      req.flash('error', 'Stripe payment not completed.');
+      return res.redirect('/wallet/topup/payment');
+    }
+
+    const reference = session.payment_intent || session.id;
+    const topupFromSession = req.session.walletTopup;
+    const amount = Number(topupFromSession?.amount || session.metadata?.topupAmount || 0);
+    const bonus = Number(topupFromSession?.bonus || session.metadata?.bonus || 0);
+    const totalCoins = Number(topupFromSession?.totalCoins || session.metadata?.totalCoins || 0) || (amount + bonus);
+
+    if (!amount || amount <= 0) {
+      req.flash('error', 'Invalid top-up details.');
+      return res.redirect('/wallet/topup');
+    }
+
+    const userId = user.id;
+    const checkSql = `
+      SELECT id
+      FROM wallet_transactions
+      WHERE user_id = ? AND reference = ?
+      LIMIT 1
+    `;
+    db.query(checkSql, [userId, reference], (checkErr, rows) => {
+      if (checkErr) {
+        console.error(checkErr);
+      }
+      if (rows && rows.length) {
+        req.session.walletTopup = null;
+        return res.redirect(`/wallet/receipt/${rows[0].id}`);
+      }
+
+      WalletModel.ensureWallet(userId, (ensureErr) => {
+        if (ensureErr) {
+          console.error(ensureErr);
+          req.flash('error', 'Failed to prepare wallet.');
+          return res.redirect('/wallet');
+        }
+
+        WalletModel.credit(userId, totalCoins, 'TOP_UP', reference, (err) => {
+          if (err) {
+            console.error(err);
+            req.flash('error', 'Failed to credit wallet.');
+            return res.redirect('/wallet');
+          }
+
+          const receiptSql = `
+            SELECT id
+            FROM wallet_transactions
+            WHERE user_id = ? AND reference = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+          `;
+          db.query(receiptSql, [userId, reference], (err2, rows2) => {
+            req.session.walletTopup = null;
+            if (err2 || !rows2.length) {
+              return res.redirect('/wallet');
+            }
+            return res.redirect(`/wallet/receipt/${rows2[0].id}`);
+          });
+        });
+      });
+    });
+  } catch (err) {
+    console.error('Stripe top-up success error:', err);
+    req.flash('error', 'Stripe payment verification failed.');
+    return res.redirect('/wallet/topup');
+  }
+};
+
+exports.topupStripeCancel = (req, res) => {
+  req.flash('error', 'Stripe top-up was canceled.');
+  return res.redirect('/wallet/topup/payment');
 };
 
 exports.topupNets = (req, res) => {

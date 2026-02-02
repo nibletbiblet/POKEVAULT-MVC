@@ -12,11 +12,17 @@ const Transaction = require('../models/Transaction');
 const WalletModel = require('../models/WalletModel');
 const CoinsModel = require('../models/CoinsModel');
 const paypal = require('../services/paypal');
-const { applyCoinsToOrder, creditCoins } = require('../services/coinsHelper');
+const { applyCoinsToOrder, creditCoins, getAppliedCoins } = require('../services/coinsHelper');
+const Stripe = require('stripe');
 const db = require('../db');
 
 const GST_RATE = 0.09;
 const DELIVERY_RATE = 0.15;
+const STRIPE_SECRET =
+  process.env.STRIPE_SECRET_KEY ||
+  process.env.STRIPE_SECRET ||
+  process.env['Stripe.apiKey'];
+const stripe = STRIPE_SECRET ? Stripe(STRIPE_SECRET) : null;
 
 const validatePromo = (code, subtotal, callback) => {
   if (!code) return callback(null, null);
@@ -57,6 +63,8 @@ const computeTotals = (cart, promo) => {
   const total = Number((taxableBase + gst + deliveryFee).toFixed(2));
   return { subtotal, promoAmount, gst, deliveryFee, total };
 };
+
+const buildBaseUrl = (req) => `${req.protocol}://${req.get('host')}`;
 
 const OrderController = {
   checkoutForm(req, res) {
@@ -529,6 +537,238 @@ const OrderController = {
       console.error(err);
       res.status(500).json({ error: err.message });
     }
+  },
+
+  stripeCreateSession(req, res) {
+    const cart = req.session.cart || [];
+    const user = req.session.user;
+    const address = (req.body.address || '').trim();
+
+    if (!stripe) {
+      return res.status(500).json({ error: 'Stripe is not configured.' });
+    }
+    if (!cart.length) {
+      return res.status(400).json({ error: 'Cart is empty' });
+    }
+
+    const promoCode = req.session.promoCode || null;
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    const ensureOrder = (promoApplied, done) => {
+      const totals = computeTotals(cart, promoApplied);
+      if (req.session.toPayOrderId) {
+        return done(req.session.toPayOrderId, totals, promoApplied);
+      }
+
+      const orderData = { userId: user.id, total: totals.total, address: address || null };
+      Order.create(orderData, cart, (err, result) => {
+        if (err) return res.status(500).json({ error: 'Failed to create order' });
+        Order.updateStatus(result.orderId, 'TO_PAY', () => {
+          req.session.toPayOrderId = result.orderId;
+          req.session.save(() => done(result.orderId, totals, promoApplied));
+        });
+      });
+    };
+
+    const createSession = (orderId, totals, promoApplied) => {
+      getAppliedCoins(req, user.id, totals.total, async (coinsErr, coinsApplied) => {
+        if (coinsErr) {
+          return res.status(500).json({ error: 'Failed to apply coins' });
+        }
+
+        const lineItems = (cart || [])
+          .map((item) => {
+            const unitAmount = Math.round(Number(item.price) * 100);
+            const quantity = Math.max(1, Number(item.quantity) || 1);
+            if (!unitAmount || unitAmount < 1) return null;
+            return {
+              price_data: {
+                currency: 'sgd',
+                product_data: {
+                  name: item.productName || 'Item'
+                },
+                unit_amount: unitAmount
+              },
+              quantity
+            };
+          })
+          .filter(Boolean);
+
+        if (!lineItems.length) {
+          return res.status(400).json({ error: 'Unable to build Stripe line items.' });
+        }
+
+        if (totals.gst > 0) {
+          lineItems.push({
+            price_data: {
+              currency: 'sgd',
+              product_data: { name: 'GST' },
+              unit_amount: Math.round(totals.gst * 100)
+            },
+            quantity: 1
+          });
+        }
+        if (totals.deliveryFee > 0) {
+          lineItems.push({
+            price_data: {
+              currency: 'sgd',
+              product_data: { name: 'Delivery Fee' },
+              unit_amount: Math.round(totals.deliveryFee * 100)
+            },
+            quantity: 1
+          });
+        }
+
+        const lineItemsTotalCents = lineItems.reduce(
+          (sum, item) => sum + item.price_data.unit_amount * item.quantity,
+          0
+        );
+        const payableTotal = Math.max(0, Number((totals.total - coinsApplied).toFixed(2)));
+        const payableCents = Math.round(payableTotal * 100);
+        if (payableCents <= 0) {
+          return res.status(400).json({ error: 'Total payable must be greater than zero.' });
+        }
+
+        const discountCents = Math.max(0, lineItemsTotalCents - payableCents);
+        const paymentMethodsRaw = (process.env.STRIPE_PAYMENT_METHODS || '').trim();
+        const paymentMethodsLower = paymentMethodsRaw.toLowerCase();
+        const paymentMethodTypes = paymentMethodsRaw && !['auto', 'all', 'default'].includes(paymentMethodsLower)
+          ? paymentMethodsRaw.split(',').map((val) => val.trim()).filter(Boolean)
+          : null;
+
+        try {
+          const discounts = [];
+          if (discountCents > 0) {
+            const coupon = await stripe.coupons.create({
+              amount_off: discountCents,
+              currency: 'sgd',
+              duration: 'once',
+              name: 'Promo/Coins Discount'
+            });
+            discounts.push({ coupon: coupon.id });
+          }
+
+          const sessionParams = {
+            mode: 'payment',
+            line_items: lineItems,
+            discounts: discounts.length ? discounts : undefined,
+            success_url: `${buildBaseUrl(req)}/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${buildBaseUrl(req)}/stripe/cancel`,
+            customer_email: user.email || undefined,
+            client_reference_id: String(orderId),
+            metadata: {
+              orderId: String(orderId),
+              userId: String(user.id),
+              promoCode: promoApplied ? promoApplied.code : '',
+              coinsApplied: String(coinsApplied || 0)
+            }
+          };
+          if (paymentMethodTypes && paymentMethodTypes.length) {
+            sessionParams.payment_method_types = paymentMethodTypes;
+          }
+
+          const session = await stripe.checkout.sessions.create(sessionParams);
+          return res.json({ id: session.id, url: session.url });
+        } catch (err) {
+          console.error('Stripe session error:', err);
+          return res.status(500).json({ error: 'Failed to start Stripe checkout.' });
+        }
+      });
+    };
+
+    if (promoCode) {
+      validatePromo(promoCode, subtotal, (err, promo) => {
+        if (err) return ensureOrder(null, createSession);
+        return ensureOrder(promo, createSession);
+      });
+    } else {
+      ensureOrder(null, createSession);
+    }
+  },
+
+  async stripeSuccess(req, res) {
+    const user = req.session.user;
+    const sessionId = req.query.session_id;
+    if (!stripe) {
+      req.flash('error', 'Stripe is not configured.');
+      return res.redirect('/checkout');
+    }
+    if (!sessionId) {
+      req.flash('error', 'Missing Stripe session.');
+      return res.redirect('/checkout');
+    }
+
+    try {
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      if (!session || session.payment_status !== 'paid') {
+        req.flash('error', 'Stripe payment not completed.');
+        return res.redirect('/checkout');
+      }
+
+      const orderId = session.metadata?.orderId || session.client_reference_id;
+      if (!orderId) {
+        req.flash('error', 'Order not found for this payment.');
+        return res.redirect('/checkout');
+      }
+
+      Order.getById(orderId, (err, order) => {
+        if (err || !order) {
+          req.flash('error', 'Order not found.');
+          return res.redirect('/checkout');
+        }
+        if (order.userId !== user.id) {
+          return res.status(403).send('Access denied');
+        }
+        if (order.status && order.status !== 'TO_PAY') {
+          return res.redirect(`/orders/${orderId}`);
+        }
+
+        const totalAmount = Number(order.total);
+        applyCoinsToOrder(req, user.id, orderId, totalAmount, (coinsErr, netAmount) => {
+          if (coinsErr) {
+            req.flash('error', coinsErr.message || 'Failed to apply coins');
+            return res.redirect('/checkout');
+          }
+
+          Order.updateStatus(orderId, 'TO_SHIP', (statusErr) => {
+            if (statusErr) {
+              console.error('Error updating order status:', statusErr);
+            }
+
+            Transaction.create({
+              orderId,
+              method: 'STRIPE',
+              status: 'COMPLETED',
+              reference: session.payment_intent || session.id,
+              amount: netAmount
+            }, () => {
+              creditCoins(user.id, netAmount, () => {});
+              req.session.orderPayments = req.session.orderPayments || {};
+              req.session.orderPayments[orderId] = {
+                method: 'Stripe Checkout',
+                promo: req.session.promoCode ? { code: req.session.promoCode, amount: req.session.promoAmount || 0 } : null
+              };
+              req.session.lastOrderId = orderId;
+              req.session.toPayOrderId = null;
+              req.session.coinsApplied = 0;
+              req.session.promoCode = null;
+              req.session.promoAmount = null;
+              req.session.cart = [];
+              req.session.save(() => res.redirect(`/orders/${orderId}`));
+            });
+          });
+        });
+      });
+    } catch (err) {
+      console.error('Stripe success error:', err);
+      req.flash('error', 'Stripe payment verification failed.');
+      return res.redirect('/checkout');
+    }
+  },
+
+  stripeCancel(req, res) {
+    req.flash('error', 'Stripe checkout was canceled.');
+    return res.redirect('/checkout');
   },
 
   resumeToPay(req, res) {

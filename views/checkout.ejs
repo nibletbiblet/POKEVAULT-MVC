@@ -73,6 +73,21 @@ background-size: cover;
     .summary-chip { display:inline-flex; align-items:center; gap:0.4rem; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:999px; padding:0.35rem 0.8rem; font-size:0.9rem; }
     .breakdown-box { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:0.9rem; padding:1rem; }
     .total-payable { background:linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)); border:1px solid rgba(255,255,255,0.18); border-radius:0.75rem; padding:0.75rem 1rem; }
+    .payment-badges { display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.65rem; }
+    .payment-badge {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:0.28rem 0.65rem;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.16);
+      background:rgba(255,255,255,0.06);
+      font-size:0.78rem;
+      font-weight:600;
+      letter-spacing:0.01em;
+      color:#fff;
+      text-transform:uppercase;
+    }
   </style>
 </head>
 <body class="theme-gradient d-flex flex-column min-vh-100">
@@ -225,19 +240,12 @@ background-size: cover;
               <textarea class="form-control" rows="3" placeholder="Delivery address (optional)" name="address"><%= user.address || '' %></textarea>
             </div>
             <div class="mb-3">
-              <label class="form-label">Express Checkout</label>
-              <button type="button" class="apple-pay-btn" aria-label="Pay with Apple Pay">
-                <span>Buy with Apple Pay</span>
-              </button>
-              <small class="text-white-50 d-block mt-2">Styled to match the official Apple Pay button for demo purposes only.</small>
-            </div>
-            <div class="mb-3">
               <label class="form-label">Payment Method</label>
               <% const walletEnabled = (typeof walletBalance !== 'undefined') ? Number(walletBalance) >= payableTotal : false; %>
               <div class="d-flex gap-2 flex-wrap">
                 <label class="pill-choice">
-                  <input type="radio" name="paymentMethod" value="card">
-                  <span>Credit / Debit Card</span>
+                  <input type="radio" name="paymentMethod" value="stripe" checked required>
+                  <span>Stripe Checkout</span>
                 </label>
                 <label class="pill-choice">
                   <input type="radio" name="paymentMethod" value="paypal">
@@ -263,6 +271,19 @@ background-size: cover;
             <div class="mb-3" id="paypal-section" style="display:none;">
               <div id="paypal-button-container"></div>
             </div>
+            <div class="mb-3" id="stripe-section" style="display:none;">
+              <button type="button" class="btn btn-cta w-100" id="stripeCheckoutBtn">Pay with Stripe</button>
+              <small class="text-white-50 d-block mt-2">Stripe will show available payment methods at checkout if enabled for your account, currency (SGD), and customer location. Apple Pay/Samsung Pay appear under card wallets.</small>
+              <div class="payment-badges" aria-label="Stripe payment methods shown if available">
+                <span class="payment-badge">Cards</span>
+                <span class="payment-badge">Apple Pay</span>
+                <span class="payment-badge">Samsung Pay</span>
+                <span class="payment-badge">PayNow</span>
+                <span class="payment-badge">GrabPay</span>
+                <span class="payment-badge">WeChat Pay</span>
+                <span class="payment-badge">Alipay</span>
+              </div>
+            </div>
             <div class="mb-3" id="wallet-section" style="display:none;">
               <button type="submit" class="btn btn-cta w-100" formaction="/checkout/wallet-pay" formmethod="POST">
                 Pay with PokeVault Pay
@@ -274,47 +295,6 @@ background-size: cover;
                 <button type="submit" class="btn btn-cta" formaction="/checkout/nets" formmethod="POST">Pay with NETS</button>
               </div>
               <small class="text-white-50 d-block mt-2">You will be redirected to a NETS QR payment screen.</small>
-            </div>
-            <div class="mb-3" id="card-fields">
-              <label class="form-label">Cardholder Name</label>
-              <input type="text" class="form-control input-ghost" name="cardName" placeholder="Name on card">
-            </div>
-            <div class="mb-3" id="card-number-field">
-              <label class="form-label">Card Number</label>
-              <div class="input-group">
-                <input type="password" class="form-control input-ghost" id="cardNumber" name="cardNumber" inputmode="numeric" pattern="[0-9 ]{12,23}" placeholder="0000 0000 0000 0000" aria-describedby="cardNumberHelp">
-                <button class="btn btn-toggle" type="button" id="toggleCardNumber" aria-label="Show card number" aria-pressed="false">
-                  <span class="toggle-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M12 5c-5 0-9.3 3.1-11 7 1.7 3.9 6 7 11 7s9.3-3.1 11-7c-1.7-3.9-6-7-11-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"></path>
-                    </svg>
-                  </span>
-                  <span class="toggle-label">Show</span>
-                </button>
-              </div>
-              <small id="cardNumberHelp" class="text-white-50">Use digits only; spaces are okay. Demo only ? no real payment is processed.</small>
-            </div>
-            <div class="row mb-3" id="card-extra-fields">
-              <div class="col-6">
-                <label class="form-label">Expiry</label>
-                <input type="text" class="form-control input-ghost" id="cardExpiry" name="cardExpiry" placeholder="MM/YY" inputmode="numeric" pattern="(0[1-9]|1[0-2])/[0-9]{2}" aria-describedby="expiryHelp">
-                <small id="expiryHelp" class="text-white-50">Format: MM/YY (e.g., 09/26)</small>
-              </div>
-              <div class="col-6">
-                <label class="form-label">CVV</label>
-                <div class="input-group">
-                  <input type="password" class="form-control input-ghost" id="cardCvv" name="cardCvv" placeholder="123" inputmode="numeric" pattern="[0-9]{3,4}" aria-describedby="cvvHelp">
-                  <button class="btn btn-toggle" type="button" id="toggleCvv" aria-label="Show CVV" aria-pressed="false">
-                    <span class="toggle-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M12 5c-5 0-9.3 3.1-11 7 1.7 3.9 6 7 11 7s9.3-3.1 11-7c-1.7-3.9-6-7-11-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"></path>
-                      </svg>
-                    </span>
-                    <span class="toggle-label">Show</span>
-                  </button>
-                </div>
-                <small id="cvvHelp" class="text-white-50">3?4 digits</small>
-              </div>
             </div>
             <div class="d-grid">
               <button type="submit" class="btn btn-cta" id="placeOrderBtn">Place Order</button>
@@ -334,44 +314,24 @@ background-size: cover;
       const paymentRadios = Array.from(document.querySelectorAll('input[name="paymentMethod"]'));
       const netsSection = document.getElementById('nets-section');
       const paypalSection = document.getElementById('paypal-section');
+      const stripeSection = document.getElementById('stripe-section');
       const walletSection = document.getElementById('wallet-section');
       const placeOrderBtn = document.getElementById('placeOrderBtn');
-
-      const cardInputs = [
-        document.querySelector('input[name="cardName"]'),
-        document.getElementById('cardNumber'),
-        document.getElementById('cardExpiry'),
-        document.getElementById('cardCvv')
-      ].filter(Boolean);
-
-      const setCardFieldsVisible = (visible) => {
-        const sections = [
-          document.getElementById('card-fields'),
-          document.getElementById('card-number-field'),
-          document.getElementById('card-extra-fields')
-        ];
-        sections.forEach((el) => {
-          if (!el) return;
-          el.style.display = visible ? '' : 'none';
-        });
-        cardInputs.forEach((input) => {
-          input.disabled = !visible;
-          if (!visible) input.value = '';
-        });
-      };
+      const stripeCheckoutBtn = document.getElementById('stripeCheckoutBtn');
+      const addressInput = document.querySelector('textarea[name="address"]');
 
       const updatePaymentUI = () => {
         const selected = paymentRadios.find(radio => radio.checked);
         const isNets = selected && selected.value === 'nets';
         const isPaypal = selected && selected.value === 'paypal';
+        const isStripe = selected && selected.value === 'stripe';
         const isWallet = selected && selected.value === 'wallet';
-        const isCard = selected && selected.value === 'card';
-        const showPlaceOrder = selected && (selected.value === 'card' || selected.value === 'cash');
+        const showPlaceOrder = selected && selected.value === 'cash';
         if (netsSection) netsSection.style.display = isNets ? 'block' : 'none';
         if (paypalSection) paypalSection.style.display = isPaypal ? 'block' : 'none';
+        if (stripeSection) stripeSection.style.display = isStripe ? 'block' : 'none';
         if (walletSection) walletSection.style.display = isWallet ? 'block' : 'none';
         if (placeOrderBtn) placeOrderBtn.style.display = showPlaceOrder ? '' : 'none';
-        setCardFieldsVisible(isCard);
       };
 
       paymentRadios.forEach(radio => {
@@ -379,54 +339,29 @@ background-size: cover;
       });
       updatePaymentUI();
 
-      const cardNumberInput = document.getElementById('cardNumber');
-      const expiryInput = document.getElementById('cardExpiry');
-      const cvvInput = document.getElementById('cardCvv');
-      const cardToggle = document.getElementById('toggleCardNumber');
-      const cvvToggle = document.getElementById('toggleCvv');
-
-      const onlyDigits = (value) => value.replace(/\D/g, '');
-      const formatCardNumber = (value) => {
-        const digits = onlyDigits(value).slice(0, 19);
-        return digits.replace(/(.{4})/g, '$1 ').trim();
-      };
-      const formatExpiry = (value) => {
-        const digits = onlyDigits(value).slice(0, 4);
-        if (digits.length <= 2) return digits;
-        return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-      };
-      const formatCvv = (value) => onlyDigits(value).slice(0, 4);
-
-      if (cardNumberInput) {
-        cardNumberInput.addEventListener('input', (event) => {
-          event.target.value = formatCardNumber(event.target.value);
+      if (stripeCheckoutBtn) {
+        stripeCheckoutBtn.addEventListener('click', async () => {
+          stripeCheckoutBtn.disabled = true;
+          stripeCheckoutBtn.textContent = 'Redirecting...';
+          try {
+            const payload = { address: addressInput ? addressInput.value : '' };
+            const res = await fetch('/api/stripe/create-checkout-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.url) {
+              throw new Error(data.error || 'Unable to start Stripe checkout.');
+            }
+            window.location.href = data.url;
+          } catch (err) {
+            alert(err.message || 'Stripe checkout failed.');
+            stripeCheckoutBtn.disabled = false;
+            stripeCheckoutBtn.textContent = 'Pay with Stripe';
+          }
         });
       }
-      if (expiryInput) {
-        expiryInput.addEventListener('input', (event) => {
-          event.target.value = formatExpiry(event.target.value);
-        });
-      }
-      if (cvvInput) {
-        cvvInput.addEventListener('input', (event) => {
-          event.target.value = formatCvv(event.target.value);
-        });
-      }
-
-      const attachToggle = (input, button, label) => {
-        if (!input || !button) return;
-        button.addEventListener('click', () => {
-          const showing = input.type === 'password';
-          input.type = showing ? 'text' : 'password';
-          button.setAttribute('aria-pressed', showing ? 'true' : 'false');
-          button.setAttribute('aria-label', `${showing ? 'Hide' : 'Show'} ${label}`);
-          const labelEl = button.querySelector('.toggle-label');
-          if (labelEl) labelEl.textContent = showing ? 'Hide' : 'Show';
-        });
-      };
-
-      attachToggle(cardNumberInput, cardToggle, 'card number');
-      attachToggle(cvvInput, cvvToggle, 'CVV');
     })();
   </script>
   <script>

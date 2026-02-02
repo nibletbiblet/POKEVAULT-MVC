@@ -44,6 +44,9 @@ router.post('/wallet/topup/confirm', requireAuth, WalletController.topupConfirm)
 router.get('/wallet/topup/payment', requireAuth, WalletController.topupPaymentPage);
 router.post('/wallet/topup/paypal/create-order', requireAuth, WalletController.topupPaypalCreate);
 router.post('/wallet/topup/paypal/capture', requireAuth, WalletController.topupPaypalCapture);
+router.post('/wallet/topup/stripe/create-checkout-session', requireAuth, WalletController.topupStripeCreateSession);
+router.get('/wallet/topup/stripe/success', requireAuth, WalletController.topupStripeSuccess);
+router.get('/wallet/topup/stripe/cancel', requireAuth, WalletController.topupStripeCancel);
 router.post('/wallet/topup/nets', requireAuth, WalletController.topupNets);
 router.get('/wallet/receipt/:id', requireAuth, WalletController.receiptPage);
 
