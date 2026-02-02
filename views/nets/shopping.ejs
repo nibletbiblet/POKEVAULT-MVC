@@ -1,0 +1,27 @@
+<!--
+ I declare that this code was written by me. 
+ I will not copy or allow others to copy my code. 
+ I understand that copying code is considered as plagiarism.
+ 
+ Student Name: NGJINHENG 
+ Student ID: 24024323 
+ Class: C372-003-E63C
+ Date created: 1/2/2026
+  -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NETS QR</title>
+</head>
+<body>
+    <h1>Shopping Cart</h1>
+    <h3>Pay with NETS</h3>
+    <img width="10%" src="./images/highlighter-156032_640.png">
+    <form action="/generateNETSQR" method="POST">
+        <label for="amount">Price: 2.50</label>
+        <input type="hidden" id="cartTotal" name="cartTotal" value="2.50" required>
+        <br>
+        <button type="submit">Make payment</button>
+    </form>
+</body>
+</html>

@@ -1,3 +1,11 @@
+/* I will not copy or allow others to copy my code. 
+ I understand that copying code is considered as plagiarism.
+ 
+ Student Name: NGJINHENG ,nate
+ Student ID: 24024323 ,24025215
+ Class: C372-003-E63C
+ Date created: 1/2/2026
+  */
 const db = require('../db');
 const bcrypt = require('bcrypt');
 const Order = require('../models/Order');
@@ -13,6 +21,154 @@ const runQuery = (sql, params = []) => new Promise((resolve, reject) => {
 });
 
 const AdminController = {
+  async orderStatus(req, res) {
+    try {
+      let rows = [];
+      try {
+        rows = await runQuery(`
+          SELECT
+            o.id,
+            o.userId,
+            o.total,
+            o.status,
+            o.createdAt,
+            u.username,
+            u.email,
+            oi.id AS itemId,
+            oi.productId,
+            oi.productName,
+            oi.quantity,
+            oi.image
+          FROM orders o
+          LEFT JOIN users u ON u.id = o.userId
+          LEFT JOIN order_items oi ON oi.orderId = o.id
+          ORDER BY o.createdAt DESC, oi.id ASC
+        `);
+      } catch (err) {
+        if (err && err.code === 'ER_BAD_FIELD_ERROR' && String(err.sqlMessage || '').includes('status')) {
+          rows = await runQuery(`
+            SELECT
+              o.id,
+              o.userId,
+              o.total,
+              o.createdAt,
+              u.username,
+              u.email,
+              oi.id AS itemId,
+              oi.productId,
+              oi.productName,
+              oi.quantity,
+              oi.image
+            FROM orders o
+            LEFT JOIN users u ON u.id = o.userId
+            LEFT JOIN order_items oi ON oi.orderId = o.id
+            ORDER BY o.createdAt DESC, oi.id ASC
+          `);
+        } else {
+          throw err;
+        }
+      }
+
+      const ordersById = new Map();
+      rows.forEach(row => {
+        if (!ordersById.has(row.id)) {
+          ordersById.set(row.id, {
+            id: row.id,
+            userId: row.userId,
+            total: Number(row.total || 0),
+            status: row.status || 'TO_SHIP',
+            createdAt: row.createdAt,
+            username: row.username || `User #${row.userId}`,
+            email: row.email || 'Unavailable',
+            items: []
+          });
+        }
+        if (row.itemId) {
+          ordersById.get(row.id).items.push({
+            id: row.itemId,
+            productId: row.productId,
+            productName: row.productName,
+            quantity: Number(row.quantity) || 0,
+            image: row.image || null
+          });
+        }
+      });
+
+      let refundRequests = [];
+      try {
+        refundRequests = await runQuery(`
+          SELECT
+            r.id,
+            r.order_id,
+            r.user_id,
+            r.reason,
+            r.description,
+            r.status,
+            r.created_at,
+            o.total,
+            o.status AS orderStatus,
+            u.username,
+            u.email
+          FROM refund_requests r
+          JOIN orders o ON o.id = r.order_id
+          JOIN users u ON u.id = r.user_id
+          WHERE r.status = 'PENDING'
+          ORDER BY r.created_at DESC
+        `);
+      } catch (err) {
+        if (err && err.code === 'ER_NO_SUCH_TABLE' && String(err.sqlMessage || '').includes('refund_requests')) {
+          refundRequests = [];
+        } else if (err && err.code === 'ER_BAD_FIELD_ERROR' && String(err.sqlMessage || '').includes('status')) {
+          refundRequests = await runQuery(`
+            SELECT
+              r.id,
+              r.order_id,
+              r.user_id,
+              r.reason,
+              r.description,
+              r.status,
+              r.created_at,
+              o.total,
+              u.username,
+              u.email
+            FROM refund_requests r
+            JOIN orders o ON o.id = r.order_id
+            JOIN users u ON u.id = r.user_id
+            WHERE r.status = 'PENDING'
+            ORDER BY r.created_at DESC
+          `);
+        } else {
+          throw err;
+        }
+      }
+
+      res.render('adminOrderStatus', {
+        user: req.session.user,
+        orders: Array.from(ordersById.values()),
+        refundRequests
+      });
+    } catch (err) {
+      console.error('Error loading order status:', err);
+      res.status(500).send('Database error');
+    }
+  },
+
+  adminSendOrder(req, res) {
+    const orderId = req.params.id;
+    Order.getById(orderId, (err, order) => {
+      if (err || !order) return res.status(404).send('Order not found');
+      if (order.status !== 'TO_SHIP') {
+        req.flash('error', 'Order is not ready to ship.');
+        return res.redirect('/admin/orders-status');
+      }
+
+      Order.updateStatus(orderId, 'TO_RECEIVE', (err2) => {
+        if (err2) return res.status(500).send('Failed to update order status');
+        req.flash('success', `Order #${orderId} marked as shipped.`);
+        return res.redirect('/admin/orders-status');
+      });
+    });
+  },
   listUsers(req, res) {
     const sql = 'SELECT id, username, email, role, contact, address FROM users ORDER BY id DESC';
     db.query(sql, (err, users) => {

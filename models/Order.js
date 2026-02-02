@@ -84,6 +84,35 @@ const Order = {
     db.query(sql, [userId], callback);
   },
 
+  getById(orderId, callback) {
+    const sql = 'SELECT * FROM orders WHERE id = ?';
+    db.query(sql, [orderId], (err, rows) => {
+      if (err) return callback(err);
+      callback(null, rows && rows[0] ? rows[0] : null);
+    });
+  },
+
+  getItems(orderId, callback) {
+    const sql = 'SELECT * FROM order_items WHERE orderId = ?';
+    db.query(sql, [orderId], callback);
+  },
+
+  updateStatus(orderId, status, callback) {
+    const sql = 'UPDATE orders SET status = ? WHERE id = ?';
+    db.query(sql, [status, orderId], (err, res) => {
+      if (err && err.code === 'ER_BAD_FIELD_ERROR' && String(err.sqlMessage || '').includes('status')) {
+        // If status column is missing, skip to avoid blocking checkout flows.
+        return callback(null, res);
+      }
+      return callback(err, res);
+    });
+  },
+
+  updateTotal(orderId, total, callback) {
+    const sql = 'UPDATE orders SET total = ? WHERE id = ?';
+    db.query(sql, [total, orderId], callback);
+  },
+
   getWithItems(orderId, callback) {
     const orderSql = 'SELECT * FROM orders WHERE id = ?';
     const itemsSql = 'SELECT * FROM order_items WHERE orderId = ?';
