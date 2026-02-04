@@ -1,3 +1,14 @@
+/*<!--
+ I declare that this code was written by me. 
+ I will not copy or allow others to copy my code. 
+ I understand that copying code is considered as plagiarism.
+ 
+ Student Name: Ray
+ Student ID: 24026513
+ Class: C372-003-E63C
+ Date created: 20/1/2026
+  -->*/
+  
 const express = require('express');
 const OrderController = require('../controllers/OrderController');
 const PromoController = require('../controllers/PromoController');

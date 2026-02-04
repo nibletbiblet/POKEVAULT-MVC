@@ -14,6 +14,7 @@
  *   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
  */
 
+
 const db = require('../db');
 
 const Trade = {
