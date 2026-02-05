@@ -103,7 +103,6 @@
             <% } %>
             <form method="POST" action="/bnpl/card/setup" id="bnplSetupForm">
               <input type="hidden" name="planMonths" value="<%= planMonths %>">
-              <input type="hidden" name="otp" id="bnplOtpInput" value="">
               <div class="mb-3">
                 <label class="form-label">Choose Bank</label>
                 <div class="bank-choice">
@@ -143,12 +142,13 @@
               <div class="mb-3">
                 <label class="form-label">2FA Code</label>
                 <div class="d-flex flex-wrap gap-2 align-items-center">
-                  <button type="button" class="btn btn-outline-light" id="bnplOtpOpenBtn">Request OTP</button>
-                  <span class="text-white-50 small" id="bnplOtpStatus">OTP not verified</span>
+                  <button type="button" class="btn btn-outline-light" id="bnplOtpRequestBtn">Request OTP</button>
+                  <span class="text-white-50 small" id="bnplOtpStatus">OTP not sent</span>
                 </div>
-                <small class="text-white-50 d-block mt-2">Sandbox OTP will be used for verification.</small>
+                <small class="text-white-50 d-block mt-2">We will send a 6-digit OTP to <%= emailMasked %>.</small>
+                <input class="form-control input-ghost mt-2" name="otp" id="bnplOtpInput" placeholder="Enter OTP" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" required>
               </div>
-              <button type="submit" class="btn btn-cta" id="bnplSaveBtn" disabled>Save BNPL Card</button>
+              <button type="submit" class="btn btn-cta" id="bnplSaveBtn">Save BNPL Card</button>
             </form>
           <% } else { %>
             <div class="alert alert-success py-2">BNPL card is set up.</div>
@@ -184,60 +184,56 @@
     </div>
   </main>
 
-  <!-- OTP modal -->
-  <div class="modal fade" id="bnplOtpModal" tabindex="-1" aria-hidden="true" data-sandbox-otp="<%= sandboxOtp %>">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content card-frosted">
-        <div class="modal-header border-0">
-          <h5 class="modal-title fw-semibold">OTP Verification</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <p class="text-white-50 mb-3">Enter the one-time code sent by the bank to confirm this BNPL card.</p>
-          <input class="form-control input-ghost" id="bnplOtpModalInput" placeholder="Enter OTP">
-          <div class="text-danger small mt-2" id="bnplOtpError" style="display:none;">OTP is incorrect.</div>
-        </div>
-        <div class="modal-footer border-0">
-          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
-          <button type="button" class="btn btn-cta" id="bnplOtpConfirmBtn">Confirm OTP</button>
-        </div>
-      </div>
-    </div>
-  </div>
-  <!-- BNPL sandbox flow uses card + OTP only -->
   <script>
     (function () {
-      const openBtn = document.getElementById('bnplOtpOpenBtn');
-      const modalEl = document.getElementById('bnplOtpModal');
-      const modalInput = document.getElementById('bnplOtpModalInput');
+      const requestBtn = document.getElementById('bnplOtpRequestBtn');
       const formOtpInput = document.getElementById('bnplOtpInput');
-      const confirmBtn = document.getElementById('bnplOtpConfirmBtn');
       const form = document.getElementById('bnplSetupForm');
-      const saveBtn = document.getElementById('bnplSaveBtn');
       const statusText = document.getElementById('bnplOtpStatus');
-      const errorText = document.getElementById('bnplOtpError');
-      if (!openBtn || !modalEl || !modalInput || !formOtpInput || !confirmBtn || !form || !saveBtn || !statusText || !errorText) return;
+      if (!requestBtn || !formOtpInput || !form || !statusText) return;
 
-      const modal = new bootstrap.Modal(modalEl);
+      const resendSeconds = Number('<%= resendSeconds || 60 %>');
+      let cooldownTimer = null;
 
-      openBtn.addEventListener('click', () => {
-        modalInput.value = '';
-        errorText.style.display = 'none';
-        modal.show();
-      });
+      const startCooldown = () => {
+        let remaining = resendSeconds;
+        requestBtn.disabled = true;
+        statusText.textContent = `OTP sent. You can resend in ${remaining}s.`;
+        if (cooldownTimer) clearTimeout(cooldownTimer);
+        const tick = () => {
+          remaining -= 1;
+          if (remaining <= 0) {
+            statusText.textContent = 'OTP sent. You can resend now.';
+            requestBtn.disabled = false;
+            return;
+          }
+          statusText.textContent = `OTP sent. You can resend in ${remaining}s.`;
+          cooldownTimer = setTimeout(tick, 1000);
+        };
+        cooldownTimer = setTimeout(tick, 1000);
+      };
 
-      confirmBtn.addEventListener('click', () => {
-        const entered = modalInput.value.trim();
-        const expected = modalEl.getAttribute('data-sandbox-otp') || '';
-        if (!entered || entered !== expected) {
-          errorText.style.display = 'block';
-          return;
+      requestBtn.addEventListener('click', async () => {
+        statusText.textContent = 'Sending OTP...';
+        requestBtn.disabled = true;
+        try {
+          const response = await fetch('/bnpl/otp/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || !data.ok) {
+            statusText.textContent = data.message || 'Failed to send OTP.';
+            requestBtn.disabled = false;
+            return;
+          }
+          startCooldown();
+        } catch (err) {
+          console.error(err);
+          statusText.textContent = 'Failed to send OTP.';
+          requestBtn.disabled = false;
         }
-        formOtpInput.value = entered;
-        saveBtn.disabled = false;
-        statusText.textContent = 'OTP verified';
-        openBtn.style.display = 'none';
-        modal.hide();
       });
     })();
   </script>

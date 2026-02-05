@@ -14,12 +14,29 @@ const BnplModel = require('../models/BnplModel');
 const BnplRefundModel = require('../models/BnplRefundModel');
 const BnplCardModel = require('../models/BnplCardModel');
 const paypal = require('../services/paypal');
+const crypto = require('crypto');
+const mailer = require('../services/mailer');
 const {
-  BNPL_FIXED_OTP,
   BNPL_SANDBOX_CARD_NUMBER,
   BNPL_SANDBOX_CARD_EXPIRY
 } = require('../config/constants');
 const { applyCoinsToOrder, creditCoins } = require('../services/coinsHelper');
+
+const sha256 = (plain) => crypto.createHash('sha256').update(plain).digest('hex');
+const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 10);
+const OTP_RESEND_SECONDS = Number(process.env.OTP_RESEND_SECONDS || 60);
+const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5);
+const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
+
+const maskEmail = (email) => {
+  if (!email || typeof email !== 'string') return '';
+  const [user, domain] = email.split('@');
+  if (!domain) return email;
+  const maskedUser = user.length <= 2
+    ? `${user[0] || ''}*`
+    : `${user[0]}${'*'.repeat(Math.max(1, user.length - 2))}${user[user.length - 1]}`;
+  return `${maskedUser}@${domain}`;
+};
 
 function finalizeBnplCheckout(req, res, planMonths, paypalCaptureId, onComplete) {
   const orderId = req.session.toPayOrderId;
@@ -82,6 +99,7 @@ function finalizeBnplCheckout(req, res, planMonths, paypalCaptureId, onComplete)
     });
   });
 }
+exports._finalizeBnplCheckout = finalizeBnplCheckout;
 
 exports.bnplCheckout = (req, res) => {
   const planMonths = Number(req.body.planMonths || 3);
@@ -167,10 +185,47 @@ exports.cardInfoPage = (req, res) => {
         bnplCard,
         messages: req.flash('error'),
         success: req.flash('success'),
-        sandboxOtp: BNPL_FIXED_OTP
+        emailMasked: maskEmail(user.email),
+        resendSeconds: OTP_RESEND_SECONDS
       });
     });
   });
+};
+
+exports.bnplOtpRequest = async (req, res) => {
+  const user = req.session.user;
+  if (!user || !user.email) {
+    return res.status(400).json({ ok: false, message: 'Missing user email.' });
+  }
+
+  const now = Date.now();
+  const pending = req.session.bnplOtp;
+  if (pending && now - Number(pending.otpLastSentAt || 0) < OTP_RESEND_SECONDS * 1000) {
+    const wait = Math.ceil((OTP_RESEND_SECONDS * 1000 - (now - pending.otpLastSentAt)) / 1000);
+    return res.status(429).json({ ok: false, message: `Please wait ${wait} seconds before resending.` });
+  }
+
+  const otpCode = generateOtp();
+  req.session.bnplOtp = {
+    otpHash: sha256(otpCode),
+    otpAttempts: 0,
+    otpLastSentAt: now,
+    otpExpiresAt: now + OTP_TTL_MINUTES * 60 * 1000
+  };
+
+  try {
+    await mailer.sendMail({
+      to: user.email,
+      subject: 'PokeVault BNPL OTP Verification',
+      text: `Your BNPL OTP is ${otpCode}. It expires in ${OTP_TTL_MINUTES} minutes.`,
+      html: `<p>Your BNPL OTP is <strong>${otpCode}</strong>.</p><p>It expires in ${OTP_TTL_MINUTES} minutes.</p>`
+    });
+    return res.json({ ok: true, message: 'OTP sent.' });
+  } catch (mailErr) {
+    console.error('BNPL OTP email failed:', mailErr);
+    req.session.bnplOtp = null;
+    return res.status(500).json({ ok: false, message: 'Failed to send OTP email.' });
+  }
 };
 
 exports.cardSetup = (req, res) => {
@@ -195,8 +250,31 @@ exports.cardSetup = (req, res) => {
     return res.redirect('/bnpl/card');
   }
 
-  if (otp !== BNPL_FIXED_OTP) {
-    req.flash('error', 'Invalid 2FA code. Please use 123456.');
+  const pending = req.session.bnplOtp;
+  const submittedOtp = String(otp || '').trim();
+  if (!pending) {
+    req.flash('error', 'Please request an OTP first.');
+    return res.redirect('/bnpl/card');
+  }
+  if (!submittedOtp) {
+    req.flash('error', 'Please enter the OTP.');
+    return res.redirect('/bnpl/card');
+  }
+  if (Date.now() > Number(pending.otpExpiresAt || 0)) {
+    req.session.bnplOtp = null;
+    req.flash('error', 'OTP expired. Please request a new OTP.');
+    return res.redirect('/bnpl/card');
+  }
+  if (Number(pending.otpAttempts || 0) >= OTP_MAX_ATTEMPTS) {
+    req.session.bnplOtp = null;
+    req.flash('error', 'Too many attempts. Please request a new OTP.');
+    return res.redirect('/bnpl/card');
+  }
+  const isValid = sha256(submittedOtp) === pending.otpHash;
+  if (!isValid) {
+    pending.otpAttempts = Number(pending.otpAttempts || 0) + 1;
+    req.session.bnplOtp = pending;
+    req.flash('error', 'Invalid OTP. Please try again.');
     return res.redirect('/bnpl/card');
   }
 
@@ -216,7 +294,9 @@ exports.cardSetup = (req, res) => {
       }
 
       req.flash('success', 'BNPL card setup successful.');
-      finalizeBnplCheckout(req, res, planMonths, null, () => res.redirect('/invoice/session'));
+      req.session.bnplOtp = null;
+      req.session.bnplPlanMonths = planMonths;
+      return res.redirect(`/checkout?bnpl=1&plan=${planMonths}`);
     }
   );
 };
@@ -246,6 +326,8 @@ exports.cardCancel = (req, res) => {
     } else {
       req.flash('success', 'BNPL card setup cancelled.');
     }
+    req.session.bnplPlanMonths = null;
+    req.session.bnplOtp = null;
     res.redirect('/checkout');
   });
 };

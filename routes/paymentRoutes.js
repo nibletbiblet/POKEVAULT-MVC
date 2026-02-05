@@ -24,6 +24,7 @@ router.post('/checkout/bnpl', requireAuth, BnplController.bnplCheckout);
 router.post('/api/bnpl/paypal/create-order', requireAuth, BnplController.bnplPaypalCreate);
 router.post('/api/bnpl/paypal/capture', requireAuth, BnplController.bnplPaypalCapture);
 router.get('/bnpl/card', requireAuth, BnplController.cardInfoPage);
+router.post('/bnpl/otp/request', requireAuth, BnplController.bnplOtpRequest);
 router.post('/bnpl/card/setup', requireAuth, BnplController.cardSetup);
 router.post('/bnpl/card/validate', requireAuth, BnplController.cardValidate);
 router.post('/bnpl/card/cancel', requireAuth, BnplController.cardCancel);

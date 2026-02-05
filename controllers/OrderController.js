@@ -12,6 +12,8 @@ const Transaction = require('../models/Transaction');
 const WalletModel = require('../models/WalletModel');
 const RefundRequestModel = require('../models/RefundRequestModel');
 const CoinsModel = require('../models/CoinsModel');
+const BnplCardModel = require('../models/BnplCardModel');
+const BnplController = require('./BnplController');
 const paypal = require('../services/paypal');
 const { applyCoinsToOrder, creditCoins, getAppliedCoins, round2 } = require('../services/coinsHelper');
 const Stripe = require('stripe');
@@ -74,6 +76,8 @@ const OrderController = {
     const cart = req.session.cart || [];
     const user = req.session.user;
     if (!cart.length) return res.redirect('/shopping');
+    const bnplSelected = req.query.bnpl;
+    const bnplPlan = req.query.plan;
     const promoCode = req.session.promoCode || null;
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const renderPage = (promoApplied) => {
@@ -98,21 +102,31 @@ const OrderController = {
               Number(coinsBalance || 0),
               Number(totals.total || 0)
             );
-            res.render('checkout', {
-              cart,
-              subtotal: totals.subtotal,
-              discount: totals.promoAmount,
-              gst: totals.gst,
-              deliveryFee: totals.deliveryFee,
-              total: totals.total,
-              coinsApplied: applied,
-              coinsBalance: Number(coinsBalance || 0),
-              walletBalance: Number(walletBalance || 0),
-              gstRate: GST_RATE,
-              deliveryRate: DELIVERY_RATE,
-              user,
-              messages: req.flash('error'),
-              promoApplied
+            BnplCardModel.getByUserId(user.id, (bnplErr, bnplCard) => {
+              if (bnplErr) {
+                console.error('BNPL card error:', bnplErr);
+              }
+              res.render('checkout', {
+                cart,
+                subtotal: totals.subtotal,
+                discount: totals.promoAmount,
+                gst: totals.gst,
+                deliveryFee: totals.deliveryFee,
+                total: totals.total,
+                coinsApplied: applied,
+                coinsBalance: Number(coinsBalance || 0),
+                walletBalance: Number(walletBalance || 0),
+                gstRate: GST_RATE,
+                deliveryRate: DELIVERY_RATE,
+                user,
+                messages: req.flash('error'),
+                successMessages: req.flash('success'),
+                promoApplied,
+                bnplSelected,
+                bnplPlan,
+                bnplCard,
+                bnplPlanMonths: req.session.bnplPlanMonths
+              });
             });
           });
         });
@@ -146,7 +160,8 @@ const OrderController = {
     const user = req.session.user;
     const address = (req.body.address || '').trim();
     const paymentMethod = req.body.paymentMethod || 'card';
-    const bnplPlanMonths = Number(req.body.bnplPlan || 6);
+    const bnplPlanMonths = Number(req.body.bnplPlan || req.session.bnplPlanMonths || 6);
+    const bnplAutoPay = String(req.body.bnplAutoPay || '') === '1';
     const cardName = (req.body.cardName || '').trim();
     const cardNumberRaw = (req.body.cardNumber || '').replace(/\D/g, '');
     const cardLast4 = cardNumberRaw ? cardNumberRaw.slice(-4) : null;
@@ -205,7 +220,18 @@ const OrderController = {
 
         if (paymentMethod === 'bnpl') {
           req.session.toPayOrderId = resumeOrderId;
-          return req.session.save(() => res.redirect(`/bnpl/card?plan=${bnplPlanMonths}`));
+          req.session.bnplPlanMonths = bnplPlanMonths;
+          return BnplCardModel.getByUserId(user.id, (bnplErr, bnplCard) => {
+            if (bnplErr) {
+              console.error('BNPL card error:', bnplErr);
+            }
+            if (bnplAutoPay && bnplCard) {
+              return req.session.save(() => {
+                BnplController._finalizeBnplCheckout(req, res, bnplPlanMonths, null, () => res.redirect('/invoice/session'));
+              });
+            }
+            return req.session.save(() => res.redirect(`/bnpl/card?plan=${bnplPlanMonths}`));
+          });
         }
         if (paymentMethod === 'cash') {
           return completePayment(Number(existingOrder.total));
@@ -285,7 +311,18 @@ const OrderController = {
           Order.updateStatus(result.orderId, 'TO_PAY', () => {
             req.session.toPayOrderId = result.orderId;
             req.session.lastOrderId = result.orderId;
-            req.session.save(() => res.redirect(`/bnpl/card?plan=${bnplPlanMonths}`));
+            req.session.bnplPlanMonths = bnplPlanMonths;
+            BnplCardModel.getByUserId(user.id, (bnplErr, bnplCard) => {
+              if (bnplErr) {
+                console.error('BNPL card error:', bnplErr);
+              }
+              if (bnplAutoPay && bnplCard) {
+                return req.session.save(() => {
+                  BnplController._finalizeBnplCheckout(req, res, bnplPlanMonths, null, () => res.redirect('/invoice/session'));
+                });
+              }
+              return req.session.save(() => res.redirect(`/bnpl/card?plan=${bnplPlanMonths}`));
+            });
           });
           return;
         }
