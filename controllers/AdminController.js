@@ -9,6 +9,7 @@
 const db = require('../db');
 const bcrypt = require('bcrypt');
 const Order = require('../models/Order');
+const UserBanHistory = require('../models/UserBanHistory');
 
 const ALLOWED_ROLES = ['admin', 'storekeeper', 'user'];
 
@@ -185,29 +186,76 @@ const AdminController = {
     const reasonRaw = typeof req.body.banReason === 'string' ? req.body.banReason.trim() : '';
     const reason = reasonRaw || null;
     const adminId = req.session && req.session.user ? req.session.user.id : null;
-    const sql = 'UPDATE users SET isBanned = 1, banReason = ?, bannedAt = NOW(), bannedBy = ? WHERE id = ?';
-    db.query(sql, [reason, adminId, userId], (err) => {
-      if (err) {
-        console.error('Error banning user:', err);
+    const guardSql = 'SELECT id, role FROM users WHERE id = ?';
+    db.query(guardSql, [userId], (guardErr, rows) => {
+      if (guardErr) {
+        console.error('Error checking user role:', guardErr);
         req.flash('error', 'Could not ban user.');
         return res.redirect('/admin/users');
       }
-      req.flash('success', 'User banned.');
-      return res.redirect('/admin/users');
+      if (!rows || !rows.length) {
+        req.flash('error', 'User not found.');
+        return res.redirect('/admin/users');
+      }
+      if (rows[0].role === 'admin') {
+        req.flash('error', 'Admin accounts cannot be banned.');
+        return res.redirect('/admin/users');
+      }
+
+      const sql = 'UPDATE users SET isBanned = 1, banReason = ?, bannedAt = NOW(), bannedBy = ? WHERE id = ?';
+      db.query(sql, [reason, adminId, userId], (err) => {
+        if (err) {
+          console.error('Error banning user:', err);
+          req.flash('error', 'Could not ban user.');
+          return res.redirect('/admin/users');
+        }
+        UserBanHistory.create(
+          { userId, action: 'BAN', reason, adminId },
+          (histErr) => {
+            if (histErr) console.error('Error recording ban history:', histErr);
+            req.flash('success', 'User banned.');
+            return res.redirect('/admin/users');
+          }
+        );
+      });
     });
   },
 
   unbanUser(req, res) {
     const userId = req.params.id;
-    const sql = 'UPDATE users SET isBanned = 0, banReason = NULL, bannedAt = NULL, bannedBy = NULL WHERE id = ?';
-    db.query(sql, [userId], (err) => {
-      if (err) {
-        console.error('Error unbanning user:', err);
+    const guardSql = 'SELECT id, role FROM users WHERE id = ?';
+    db.query(guardSql, [userId], (guardErr, rows) => {
+      if (guardErr) {
+        console.error('Error checking user role:', guardErr);
         req.flash('error', 'Could not unban user.');
         return res.redirect('/admin/users');
       }
-      req.flash('success', 'User unbanned.');
-      return res.redirect('/admin/users');
+      if (!rows || !rows.length) {
+        req.flash('error', 'User not found.');
+        return res.redirect('/admin/users');
+      }
+      if (rows[0].role === 'admin') {
+        req.flash('error', 'Admin accounts cannot be unbanned.');
+        return res.redirect('/admin/users');
+      }
+
+      const sql = 'UPDATE users SET isBanned = 0, banReason = NULL, bannedAt = NULL, bannedBy = NULL WHERE id = ?';
+      db.query(sql, [userId], (err) => {
+        if (err) {
+          console.error('Error unbanning user:', err);
+          req.flash('error', 'Could not unban user.');
+          return res.redirect('/admin/users');
+        }
+        const adminId = req.session && req.session.user ? req.session.user.id : null;
+        UserBanHistory.create(
+          { userId, action: 'UNBAN', reason: null, adminId },
+          (histErr) => {
+            if (histErr) console.error('Error recording unban history:', histErr);
+            req.flash('success', 'User unbanned.');
+            return res.redirect('/admin/users');
+          }
+        );
+      });
     });
   },
 
@@ -227,6 +275,29 @@ const AdminController = {
           return res.status(500).send('Database error');
         }
         res.render('adminUserOrders', { targetUser, orders, user: req.session.user });
+      });
+    });
+  },
+
+  suspensionHistory(req, res) {
+    const userId = req.params.id;
+    const userSql = 'SELECT id, username, email FROM users WHERE id = ?';
+    db.query(userSql, [userId], (err, result) => {
+      if (err) {
+        console.error('Error fetching user:', err);
+        return res.status(500).send('Database error');
+      }
+      if (!result || !result.length) return res.status(404).send('User not found');
+      const targetUser = result[0];
+      UserBanHistory.getByUserId(userId, (histErr, history) => {
+        if (histErr) {
+          console.error('Error fetching user ban history:', histErr);
+        }
+        res.render('adminUserSuspension', {
+          targetUser,
+          history: history || [],
+          user: req.session.user
+        });
       });
     });
   },

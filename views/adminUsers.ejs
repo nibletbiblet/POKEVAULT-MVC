@@ -48,7 +48,19 @@
     }
     .role-badge.admin { background: rgba(220,53,69,0.18); border-color: rgba(220,53,69,0.5); }
     .user-meta { color: rgba(255,255,255,0.7); font-size: 0.9rem; }
-    .user-actions .btn { flex: 1 1 auto; }
+    .user-actions { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+    .user-actions > a,
+    .user-actions > form,
+    .user-actions > span { width: 100%; }
+    .user-actions > form .btn { width: 100%; }
+    .user-actions > span {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 0.85rem;
+      padding: 0.25rem 0.4rem;
+    }
 
     .search-box {
       background: rgba(255,255,255,0.05);
@@ -178,28 +190,33 @@
                 <% if (u.role !== 'admin') { %>
                   <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= u.id %>/orders">View Orders</a>
                   <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= u.id %>/edit">Edit</a>
+                  <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= u.id %>/suspension-history">Suspension History</a>
                   <form action="/admin/users/<%= u.id %>/delete" method="POST" class="d-inline-flex flex-grow-1 delete-user-form" data-name="<%= u.username %>">
                     <button type="submit" class="btn btn-danger btn-sm w-100" title="Delete user">Delete</button>
                   </form>
                 <% } else if (isSelfAdmin) { %>
                   <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= u.id %>/edit">Edit Profile</a>
+                  <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= u.id %>/suspension-history">Suspension History</a>
                   <span class="text-white-50 small">Editing own admin</span>
                 <% } else { %>
+                  <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= u.id %>/suspension-history">Suspension History</a>
                   <span class="text-white-50 small">Admin account</span>
                 <% } %>
               </div>
-              <div class="mt-2">
-                <% if (!isBanned) { %>
-                  <form action="/admin/users/<%= u.id %>/ban" method="POST" class="d-flex gap-2">
-                    <input type="text" name="banReason" class="form-control form-control-sm" placeholder="Ban reason (optional)">
-                    <button type="submit" class="btn btn-warning btn-sm">Ban</button>
-                  </form>
-                <% } else { %>
-                  <form action="/admin/users/<%= u.id %>/unban" method="POST">
-                    <button type="submit" class="btn btn-success btn-sm">Unban</button>
-                  </form>
-                <% } %>
-              </div>
+              <% if (u.role !== 'admin') { %>
+                <div class="mt-2">
+                  <% if (!isBanned) { %>
+                    <form action="/admin/users/<%= u.id %>/ban" method="POST" class="d-flex gap-2">
+                      <input type="text" name="banReason" class="form-control form-control-sm" placeholder="Ban reason (optional)">
+                      <button type="submit" class="btn btn-warning btn-sm">Ban</button>
+                    </form>
+                  <% } else { %>
+                    <form action="/admin/users/<%= u.id %>/unban" method="POST">
+                      <button type="submit" class="btn btn-success btn-sm">Unban</button>
+                    </form>
+                  <% } %>
+                </div>
+              <% } %>
             </div>
           </div>
         <% }) %>

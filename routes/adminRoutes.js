@@ -5,6 +5,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/admin/users', requireAuth, requireRole('admin'), AdminController.listUsers);
+router.get('/admin/users/:id/suspension-history', requireAuth, requireRole('admin'), AdminController.suspensionHistory);
 router.get('/admin/users/:id/orders', requireAuth, requireRole('admin'), AdminController.userOrders);
 router.get('/admin/users/add', requireAuth, requireRole('admin'), AdminController.addUserForm);
 router.post('/admin/users/add', requireAuth, requireRole('admin'), AdminController.addUser);
