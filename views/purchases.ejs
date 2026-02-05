@@ -146,6 +146,7 @@
         </div>
       </div>
 
+
       <ul class="nav nav-tabs">
         <li class="nav-item">
           <a class="nav-link <%= activeTab === 'TO_PAY' ? 'active' : '' %>" href="/purchases?tab=TO_PAY">To Pay</a>
@@ -183,7 +184,13 @@
                     <div class="order-meta"><%= new Date(o.createdAt).toLocaleString() %></div>
                     <div class="order-meta mt-1">
                       Status:
-                      <span class="badge-soft"><%= (activeTab === 'REFUND' ? 'REFUNDED' : activeTab.replace('_', ' ')) %></span>
+                      <span class="badge-soft">
+                        <% if (activeTab === 'REFUND') { %>
+                          <%= (o.refund && o.refund.status === 'PENDING') ? 'REFUND PENDING' : 'REFUNDED' %>
+                        <% } else { %>
+                          <%= activeTab.replace('_', ' ') %>
+                        <% } %>
+                      </span>
                     </div>
                   </div>
                   <div class="text-end">

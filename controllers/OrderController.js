@@ -945,16 +945,45 @@ const OrderController = {
     const allowedTabs = ['TO_PAY', 'TO_SHIP', 'TO_RECEIVE', 'PENDING', 'COMPLETED', 'REFUND'];
     const activeTab = allowedTabs.includes(req.query.tab) ? req.query.tab : 'TO_SHIP';
 
-    const sql = `
-      SELECT o.id, o.total, o.createdAt, o.status,
-             oi.productId, oi.productName, oi.image
-      FROM orders o
-      LEFT JOIN order_items oi ON oi.orderId = o.id
-      WHERE o.userId = ? AND o.status = ?
-      ORDER BY o.createdAt DESC, oi.id ASC
-    `;
+    const sql = activeTab === 'REFUND'
+      ? `
+        SELECT o.id, o.total, o.createdAt, o.status,
+               oi.productId, oi.productName, oi.image
+        FROM orders o
+        LEFT JOIN order_items oi ON oi.orderId = o.id
+        WHERE o.userId = ? AND (
+          o.status = 'REFUND'
+          OR (o.status = 'PENDING' AND EXISTS (
+            SELECT 1 FROM refund_requests rr
+            WHERE rr.order_id = o.id AND rr.status = 'PENDING'
+          ))
+        )
+        ORDER BY o.createdAt DESC, oi.id ASC
+      `
+      : activeTab === 'PENDING'
+        ? `
+          SELECT o.id, o.total, o.createdAt, o.status,
+                 oi.productId, oi.productName, oi.image
+          FROM orders o
+          LEFT JOIN order_items oi ON oi.orderId = o.id
+          WHERE o.userId = ? AND o.status = ?
+          AND NOT EXISTS (
+            SELECT 1 FROM refund_requests rr
+            WHERE rr.order_id = o.id AND rr.status = 'PENDING'
+          )
+          ORDER BY o.createdAt DESC, oi.id ASC
+        `
+        : `
+          SELECT o.id, o.total, o.createdAt, o.status,
+                 oi.productId, oi.productName, oi.image
+          FROM orders o
+          LEFT JOIN order_items oi ON oi.orderId = o.id
+          WHERE o.userId = ? AND o.status = ?
+          ORDER BY o.createdAt DESC, oi.id ASC
+        `;
 
-    db.query(sql, [user.id, activeTab], (err, rows) => {
+    const sqlParams = activeTab === 'REFUND' ? [user.id] : [user.id, activeTab];
+    db.query(sql, sqlParams, (err, rows) => {
       if (err) {
         console.error('Error fetching purchases:', err);
         return res.status(500).send('Database error');
@@ -981,7 +1010,9 @@ const OrderController = {
       });
 
       const orders = Array.from(ordersById.values());
-      if (activeTab !== 'COMPLETED' || !orders.length) {
+
+      const needsRefundData = (activeTab === 'COMPLETED' || activeTab === 'REFUND');
+      if (!needsRefundData || !orders.length) {
         return res.render('purchases', { orders, user, activeTab });
       }
 
@@ -1001,6 +1032,7 @@ const OrderController = {
       });
     });
   },
+
 
   detail(req, res) {
     const user = req.session.user;

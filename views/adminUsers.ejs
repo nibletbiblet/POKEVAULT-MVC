@@ -175,12 +175,16 @@
                 <span class="role-badge <%= u.role === 'admin' ? 'admin' : '' %>"><%= u.role %></span>
               </div>
               <% const isBanned = u.isBanned === 1 || u.isBanned === '1' || u.isBanned === true; %>
+              <% const hasHighRefundRate = (u.refundRate || 0) >= 0.5 && (u.totalOrders || 0) > 0; %>
               <div class="mb-2 user-meta">
                 Status:
                 <% if (isBanned) { %>
                   <span class="badge bg-danger">Banned</span>
                 <% } else { %>
                   <span class="badge bg-success">Active</span>
+                <% } %>
+                <% if (hasHighRefundRate) { %>
+                  <span class="badge bg-warning text-dark ms-2" title="User has an unusually high refund rate">High refund rate</span>
                 <% } %>
               </div>
               <div class="mb-2 user-meta">Contact: <%= u.contact || '-' %></div>
@@ -189,6 +193,7 @@
                 <% const isSelfAdmin = user && user.id === u.id && u.role === 'admin'; %>
                 <% if (u.role !== 'admin') { %>
                   <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= u.id %>/orders">View Orders</a>
+                  <a class="btn btn-outline-light btn-sm" href="/admin/refunds?userId=<%= u.id %>">Refund History</a>
                   <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= u.id %>/edit">Edit</a>
                   <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= u.id %>/suspension-history">Suspension History</a>
                   <form action="/admin/users/<%= u.id %>/delete" method="POST" class="d-inline-flex flex-grow-1 delete-user-form" data-name="<%= u.username %>">

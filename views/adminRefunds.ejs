@@ -17,6 +17,8 @@
     .card-frosted { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 1rem; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 18px 48px rgba(0,0,0,0.55); padding: 1.25rem; }
     .badge-soft { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #fff; border-radius: 999px; padding: 0.3rem 0.65rem; font-weight: 700; letter-spacing: 0.02em; }
     .refund-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); border-radius: 0.8rem; padding: 1rem; }
+    .alert.alert-warning { background: rgba(255, 193, 7, 0.15); color: #fff; border-color: rgba(255, 193, 7, 0.35); }
+    .alert.alert-warning li { color: rgba(255,255,255,0.9); }
   </style>
 </head>
 <body class="theme-gradient d-flex flex-column min-vh-100">
@@ -47,6 +49,17 @@
         </div>
         <div class="text-white-50 small">Refund History: <a class="text-white" href="/admin/audit-log">View Audit Log</a></div>
       </div>
+
+      <% if (flaggedUsers && flaggedUsers.length) { %>
+        <div class="alert alert-warning" role="alert">
+          <strong>Multiple pending refunds detected:</strong>
+          <ul class="mb-0 mt-2">
+            <% flaggedUsers.forEach(u => { %>
+              <li><%= u.username %> <%= u.email ? '(' + u.email + ')' : '' %> — <%= u.count %> pending requests</li>
+            <% }) %>
+          </ul>
+        </div>
+      <% } %>
 
       <% if (!refundRequests || !refundRequests.length) { %>
         <div class="text-white-50">No pending refund requests.</div>

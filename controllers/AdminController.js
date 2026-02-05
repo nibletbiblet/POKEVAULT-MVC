@@ -157,31 +157,10 @@ const AdminController = {
   async refundRequestsPage(req, res) {
     try {
       let refundRequests = [];
+      const filterUserId = req.query && req.query.userId ? Number(req.query.userId) : null;
       try {
-        refundRequests = await runQuery(`
-          SELECT
-            r.id,
-            r.order_id,
-            r.user_id,
-            r.reason,
-            r.description,
-            r.status,
-            r.created_at,
-            o.total,
-            o.status AS orderStatus,
-            u.username,
-            u.email
-          FROM refund_requests r
-          JOIN orders o ON o.id = r.order_id
-          JOIN users u ON u.id = r.user_id
-          WHERE r.status = 'PENDING'
-          ORDER BY r.created_at DESC
-        `);
-      } catch (err) {
-        if (err && err.code === 'ER_NO_SUCH_TABLE' && String(err.sqlMessage || '').includes('refund_requests')) {
-          refundRequests = [];
-        } else if (err && err.code === 'ER_BAD_FIELD_ERROR' && String(err.sqlMessage || '').includes('status')) {
-          refundRequests = await runQuery(`
+        refundRequests = await runQuery(
+          `
             SELECT
               r.id,
               r.order_id,
@@ -191,22 +170,71 @@ const AdminController = {
               r.status,
               r.created_at,
               o.total,
+              o.status AS orderStatus,
               u.username,
               u.email
             FROM refund_requests r
             JOIN orders o ON o.id = r.order_id
             JOIN users u ON u.id = r.user_id
-            WHERE r.status = 'PENDING'
+            ${filterUserId ? 'WHERE r.user_id = ?' : "WHERE r.status = 'PENDING'"}
             ORDER BY r.created_at DESC
-          `);
+          `,
+          filterUserId ? [filterUserId] : []
+        );
+      } catch (err) {
+        if (err && err.code === 'ER_NO_SUCH_TABLE' && String(err.sqlMessage || '').includes('refund_requests')) {
+          refundRequests = [];
+        } else if (err && err.code === 'ER_BAD_FIELD_ERROR' && String(err.sqlMessage || '').includes('status')) {
+          refundRequests = await runQuery(
+            `
+              SELECT
+                r.id,
+                r.order_id,
+                r.user_id,
+                r.reason,
+                r.description,
+                r.status,
+                r.created_at,
+                o.total,
+                u.username,
+                u.email
+              FROM refund_requests r
+              JOIN orders o ON o.id = r.order_id
+              JOIN users u ON u.id = r.user_id
+              ${filterUserId ? 'WHERE r.user_id = ?' : "WHERE r.status = 'PENDING'"}
+              ORDER BY r.created_at DESC
+            `,
+            filterUserId ? [filterUserId] : []
+          );
         } else {
           throw err;
         }
       }
 
+      const pendingCounts = new Map();
+      (refundRequests || []).forEach(r => {
+        if (r.status === 'PENDING') {
+          pendingCounts.set(r.user_id, (pendingCounts.get(r.user_id) || 0) + 1);
+        }
+      });
+      const flaggedUsers = [];
+      pendingCounts.forEach((count, userId) => {
+        if (count >= 2) {
+          const sample = (refundRequests || []).find(r => r.user_id === userId) || {};
+          flaggedUsers.push({
+            userId,
+            username: sample.username || `User #${userId}`,
+            email: sample.email || '',
+            count
+          });
+        }
+      });
+
       res.render('adminRefunds', {
         user: req.session.user,
-        refundRequests
+        refundRequests,
+        flaggedUsers,
+        filterUserId
       });
     } catch (err) {
       console.error('Error loading refund requests:', err);
@@ -237,7 +265,46 @@ const AdminController = {
         console.error('Error fetching users:', err);
         return res.status(500).send('Database error');
       }
-      res.render('adminUsers', { users, user: req.session.user });
+      const userIds = (users || []).map(u => u.id);
+      if (!userIds.length) {
+        return res.render('adminUsers', { users, user: req.session.user });
+      }
+
+      const placeholders = userIds.map(() => '?').join(', ');
+      const statsSql = `
+        SELECT
+          u.id AS userId,
+          COUNT(DISTINCT o.id) AS totalOrders,
+          COUNT(DISTINCT rr.order_id) AS refundOrders
+        FROM users u
+        LEFT JOIN orders o ON o.userId = u.id
+        LEFT JOIN refund_requests rr ON rr.user_id = u.id
+        WHERE u.id IN (${placeholders})
+        GROUP BY u.id
+      `;
+      db.query(statsSql, userIds, (statsErr, rows) => {
+        if (statsErr) {
+          console.error('Error computing refund stats:', statsErr);
+          return res.render('adminUsers', { users, user: req.session.user });
+        }
+        const statsByUser = new Map();
+        (rows || []).forEach(r => {
+          const total = Number(r.totalOrders || 0);
+          const refundOrders = Number(r.refundOrders || 0);
+          const refundRate = total > 0 ? refundOrders / total : 0;
+          statsByUser.set(r.userId, { refundRate, total, refundOrders });
+        });
+        const enriched = (users || []).map(u => {
+          const stats = statsByUser.get(u.id) || { refundRate: 0, total: 0, refundOrders: 0 };
+          return {
+            ...u,
+            refundRate: stats.refundRate,
+            refundOrders: stats.refundOrders,
+            totalOrders: stats.total
+          };
+        });
+        return res.render('adminUsers', { users: enriched, user: req.session.user });
+      });
     });
   },
 
