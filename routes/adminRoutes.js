@@ -10,6 +10,8 @@ router.get('/admin/users/add', requireAuth, requireRole('admin'), AdminControlle
 router.post('/admin/users/add', requireAuth, requireRole('admin'), AdminController.addUser);
 router.get('/admin/users/:id/edit', requireAuth, requireRole('admin'), AdminController.editUserForm);
 router.post('/admin/users/:id/edit', requireAuth, requireRole('admin'), AdminController.editUser);
+router.post('/admin/users/:id/ban', requireAuth, requireRole('admin'), AdminController.banUser);
+router.post('/admin/users/:id/unban', requireAuth, requireRole('admin'), AdminController.unbanUser);
 router.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), AdminController.deleteUser);
 router.get('/admin/users/:id/delete', requireAuth, requireRole('admin'), AdminController.deleteUser);
 router.get('/admin/audit-log', requireAuth, requireRole('admin'), AdminController.auditLog);

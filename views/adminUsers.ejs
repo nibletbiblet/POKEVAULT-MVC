@@ -162,6 +162,15 @@
                 </div>
                 <span class="role-badge <%= u.role === 'admin' ? 'admin' : '' %>"><%= u.role %></span>
               </div>
+              <% const isBanned = u.isBanned === 1 || u.isBanned === '1' || u.isBanned === true; %>
+              <div class="mb-2 user-meta">
+                Status:
+                <% if (isBanned) { %>
+                  <span class="badge bg-danger">Banned</span>
+                <% } else { %>
+                  <span class="badge bg-success">Active</span>
+                <% } %>
+              </div>
               <div class="mb-2 user-meta">Contact: <%= u.contact || '-' %></div>
               <div class="mb-3 user-meta">Address: <%= u.address || '-' %></div>
               <div class="user-actions d-flex gap-2 mt-auto">
@@ -177,6 +186,18 @@
                   <span class="text-white-50 small">Editing own admin</span>
                 <% } else { %>
                   <span class="text-white-50 small">Admin account</span>
+                <% } %>
+              </div>
+              <div class="mt-2">
+                <% if (!isBanned) { %>
+                  <form action="/admin/users/<%= u.id %>/ban" method="POST" class="d-flex gap-2">
+                    <input type="text" name="banReason" class="form-control form-control-sm" placeholder="Ban reason (optional)">
+                    <button type="submit" class="btn btn-warning btn-sm">Ban</button>
+                  </form>
+                <% } else { %>
+                  <form action="/admin/users/<%= u.id %>/unban" method="POST">
+                    <button type="submit" class="btn btn-success btn-sm">Unban</button>
+                  </form>
                 <% } %>
               </div>
             </div>

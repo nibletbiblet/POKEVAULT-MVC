@@ -1,6 +1,7 @@
 const express = require('express');
 const UserController = require('../controllers/UserController');
 const { requireAuth } = require('../middleware/auth');
+const checkBannedLogin = require('../middlewares/checkBannedLogin');
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ router.post('/register/otp', UserController.registerOtpVerify);
 router.post('/register/otp/resend', UserController.registerOtpResend);
 
 router.get('/login', UserController.loginForm);
-router.post('/login', UserController.login);
+router.post('/login', checkBannedLogin, UserController.login);
 
 router.get('/logout', requireAuth, UserController.logout);
 

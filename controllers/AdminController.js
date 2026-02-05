@@ -170,13 +170,44 @@ const AdminController = {
     });
   },
   listUsers(req, res) {
-    const sql = 'SELECT id, username, email, role, contact, address FROM users ORDER BY id DESC';
+    const sql = 'SELECT id, username, email, role, contact, address, isBanned FROM users ORDER BY id DESC';
     db.query(sql, (err, users) => {
       if (err) {
         console.error('Error fetching users:', err);
         return res.status(500).send('Database error');
       }
       res.render('adminUsers', { users, user: req.session.user });
+    });
+  },
+
+  banUser(req, res) {
+    const userId = req.params.id;
+    const reasonRaw = typeof req.body.banReason === 'string' ? req.body.banReason.trim() : '';
+    const reason = reasonRaw || null;
+    const adminId = req.session && req.session.user ? req.session.user.id : null;
+    const sql = 'UPDATE users SET isBanned = 1, banReason = ?, bannedAt = NOW(), bannedBy = ? WHERE id = ?';
+    db.query(sql, [reason, adminId, userId], (err) => {
+      if (err) {
+        console.error('Error banning user:', err);
+        req.flash('error', 'Could not ban user.');
+        return res.redirect('/admin/users');
+      }
+      req.flash('success', 'User banned.');
+      return res.redirect('/admin/users');
+    });
+  },
+
+  unbanUser(req, res) {
+    const userId = req.params.id;
+    const sql = 'UPDATE users SET isBanned = 0, banReason = NULL, bannedAt = NULL, bannedBy = NULL WHERE id = ?';
+    db.query(sql, [userId], (err) => {
+      if (err) {
+        console.error('Error unbanning user:', err);
+        req.flash('error', 'Could not unban user.');
+        return res.redirect('/admin/users');
+      }
+      req.flash('success', 'User unbanned.');
+      return res.redirect('/admin/users');
     });
   },
 

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="/theme.css" rel="stylesheet">
+  <title>Account Suspended</title>
+  <style>
+    body { background:#111213; color:#fff; font-family:'Montserrat',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; }
+    body::before { content:''; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:-1; }
+    .notice-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 0.9rem;
+      padding: 2rem;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+      max-width: 640px;
+      margin: 12vh auto 0;
+    }
+    .notice-title { font-weight: 700; letter-spacing: -0.01em; }
+    .notice-text { color: rgba(255,255,255,0.8); }
+    .notice-meta { color: rgba(255,255,255,0.6); font-size: 0.95rem; }
+    a { color: #fff; }
+  </style>
+</head>
+<body class="theme-gradient">
+  <main class="container">
+    <div class="notice-card">
+      <h1 class="notice-title h3 mb-3">Account Suspended</h1>
+      <p class="notice-text mb-3">
+        Your account has been suspended. If you believe this is an error, please contact support at
+        <strong>support@example.com</strong>.
+      </p>
+      <% if (reason) { %>
+        <p class="notice-meta mb-3">Reason: <%= reason %></p>
+      <% } %>
+      <a class="btn btn-outline-light btn-sm" href="/login">Back to Login</a>
+    </div>
+  </main>
+</body>
+</html>
