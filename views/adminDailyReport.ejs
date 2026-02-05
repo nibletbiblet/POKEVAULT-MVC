@@ -1,0 +1,180 @@
+<!--
+ I declare that this code was written by me.
+ I will not copy or allow others to copy my code.
+ I understand that copying code is considered as plagiarism.
+ -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="/theme.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <title>Daily Report</title>
+  <style>
+    .custom-navbar { background-color:transparent !important; padding-top:1.05rem; padding-bottom:1.05rem; min-height:80px; z-index:1030; box-shadow:none; }
+    .custom-navbar .navbar-brand { font-weight:700; letter-spacing:-0.01em; }
+    .brand-logo { font-family:'Montserrat',system-ui,sans-serif; display:inline-flex; flex-direction:column; text-align:center; text-decoration:none; line-height:1.05; padding-left:0.1rem; }
+    .brand-main { font-size:1.45rem; font-weight:700; letter-spacing:0.33em; text-transform:uppercase; color:#ffffff; }
+    .brand-sub { font-size:0.68rem; font-weight:500; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.75); margin-top:0.15rem; }
+    .card-frosted { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 1rem; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 18px 48px rgba(0,0,0,0.55); padding: 1.25rem; }
+    .stat-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 0.85rem; padding: 1rem; box-shadow: 0 14px 32px rgba(0,0,0,0.45); }
+    .stat-title { color: rgba(255,255,255,0.7); letter-spacing: 0.02em; font-size: 0.85rem; text-transform: uppercase; font-weight: 700; }
+    .stat-value { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.01em; color: #fff; }
+    .table-dark th, .table-dark td { border-color: rgba(255,255,255,0.08); }
+    .table-dark tbody tr { background: rgba(8, 24, 48, 0.62) !important; }
+    .table-dark tbody tr:hover { background: rgba(12, 32, 64, 0.75) !important; }
+  </style>
+</head>
+<body class="theme-gradient d-flex flex-column min-vh-100">
+  <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
+    <div class="container-fluid">
+      <a class="navbar-brand brand-logo" href="/">
+        <span class="brand-main">PokeVault</span>
+        <span class="brand-sub">SINGAPORE</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="collapsibleNavbar">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item d-flex align-items-center me-3"><span class="text-light small">Signed in as <strong><%= user.username %></strong></span></li>
+          <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/logout">Logout</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container flex-grow-1 py-4 page-shell">
+    <%
+      function formatMoney(value) {
+        if (value === null || value === undefined) return '—';
+        const num = Number(value || 0);
+        return num.toFixed(2);
+      }
+    %>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+      <div>
+        <h4 class="fw-bold mb-1">Daily Report</h4>
+        <small class="text-white-50"><%= date %></small>
+      </div>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-light btn-sm" href="/admin/dashboard">Back to Dashboard</a>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-6 col-lg-3">
+        <div class="stat-card">
+          <div class="stat-title">Gross Sales</div>
+          <div class="stat-value">$<%= formatMoney(stats.grossSales) %></div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-3">
+        <div class="stat-card">
+          <div class="stat-title">Refunded Amount</div>
+          <div class="stat-value">$<%= formatMoney(stats.refundedAmount) %></div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-3">
+        <div class="stat-card">
+          <div class="stat-title">Net Sales</div>
+          <div class="stat-value">$<%= formatMoney(stats.netSales) %></div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-3">
+        <div class="stat-card">
+          <div class="stat-title">Orders / AOV</div>
+          <div class="stat-value"><%= stats.orders %> / $<%= formatMoney(stats.aov) %></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-frosted mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="text-white-50 text-uppercase mb-0">Orders</h6>
+        <small class="text-white-50">Total: <%= orders.total %></small>
+      </div>
+      <% if (!orders.rows || !orders.rows.length) { %>
+        <div class="text-white-50">No orders for this date.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-dark align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% orders.rows.forEach(o => { %>
+                <tr>
+                  <td>#<%= o.id %></td>
+                  <td>
+                    <div><%= o.username || `User #${o.userId}` %></div>
+                    <div class="text-white-50 small"><%= o.email || 'Unavailable' %></div>
+                  </td>
+                  <td>$<%= formatMoney(o.total) %></td>
+                  <td><%= o.status %></td>
+                  <td><%= new Date(o.createdAt).toLocaleString() %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-3">
+          <a class="btn btn-outline-light btn-sm <%= orders.page <= 1 ? 'disabled' : '' %>" href="/admin/reports/day?date=<%= date %>&ordersPage=<%= orders.page - 1 %>&refundsPage=<%= refunds.page %>">Prev</a>
+          <a class="btn btn-outline-light btn-sm <%= orders.page >= orders.totalPages ? 'disabled' : '' %>" href="/admin/reports/day?date=<%= date %>&ordersPage=<%= orders.page + 1 %>&refundsPage=<%= refunds.page %>">Next</a>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="card-frosted">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="text-white-50 text-uppercase mb-0">Refunds</h6>
+        <small class="text-white-50">Total: <%= refunds.total %></small>
+      </div>
+      <% if (!refunds.rows || !refunds.rows.length) { %>
+        <div class="text-white-50">No refunds for this date.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-dark align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Refund</th>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% refunds.rows.forEach(r => { %>
+                <tr>
+                  <td>#<%= r.refund_id %></td>
+                  <td>#<%= r.order_id %></td>
+                  <td>
+                    <div><%= r.username || `User #${r.user_id}` %></div>
+                    <div class="text-white-50 small"><%= r.email || 'Unavailable' %></div>
+                  </td>
+                  <td>$<%= formatMoney(r.amount) %></td>
+                  <td><%= r.status %></td>
+                  <td><%= new Date(r.createdAt).toLocaleString() %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-3">
+          <a class="btn btn-outline-light btn-sm <%= refunds.page <= 1 ? 'disabled' : '' %>" href="/admin/reports/day?date=<%= date %>&ordersPage=<%= orders.page %>&refundsPage=<%= refunds.page - 1 %>">Prev</a>
+          <a class="btn btn-outline-light btn-sm <%= refunds.page >= refunds.totalPages ? 'disabled' : '' %>" href="/admin/reports/day?date=<%= date %>&ordersPage=<%= orders.page %>&refundsPage=<%= refunds.page + 1 %>">Next</a>
+        </div>
+      <% } %>
+    </div>
+  </main>
+</body>
+</html>

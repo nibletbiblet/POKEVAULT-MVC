@@ -74,12 +74,40 @@
   </nav>
 
   <main class="container flex-grow-1 py-4 page-shell">
+    <%
+      function formatMoney(value) {
+        if (value === null || value === undefined) return '—';
+        const num = Number(value || 0);
+        return num.toFixed(2);
+      }
+      function formatDelta(pct) {
+        if (pct === null || pct === undefined) return '—';
+        const sign = pct > 0 ? '+' : '';
+        return `${sign}${(pct * 100).toFixed(1)}%`;
+      }
+      function formatPercent(value) {
+        if (value === null || value === undefined) return '—';
+        return `${(Number(value) * 100).toFixed(1)}%`;
+      }
+    %>
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
       <div>
         <h4 class="fw-bold mb-1">Admin Dashboard</h4>
         <small class="text-white-50">Key business metrics at a glance.</small>
       </div>
-      <div class="d-flex gap-2">
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <div class="btn-group me-2" role="group" aria-label="Time range">
+          <% const rangeOptions = [
+            { key: '7D', label: '7D' },
+            { key: '30D', label: '30D' },
+            { key: 'MTD', label: 'MTD' },
+            { key: 'YTD', label: 'YTD' },
+            { key: 'ALL', label: 'ALL' }
+          ]; %>
+          <% rangeOptions.forEach(opt => { %>
+            <a class="btn btn-outline-light btn-sm <%= stats.rangeKey === opt.key ? 'active' : '' %>" href="/admin/dashboard?range=<%= opt.key %>"><%= opt.label %></a>
+          <% }) %>
+        </div>
         <a class="btn btn-outline-light btn-sm" href="/inventory">Manage Inventory</a>
         <a class="btn btn-outline-light btn-sm" href="/admin/orders-status">Manage Status</a>
         <a class="btn btn-outline-light btn-sm" href="/admin/users">Manage Users</a>
@@ -90,71 +118,92 @@
     <div class="row g-3 mb-4">
       <div class="col-12 col-md-6 col-lg-3">
         <div class="stat-card">
-          <div class="stat-title">Total Revenue</div>
-          <div class="stat-value">$<%= stats.revenue.toFixed(2) %></div>
+          <div class="stat-title">Net Sales (<%= stats.rangeLabel %>)</div>
+          <div class="stat-value">$<%= formatMoney(stats.netSales) %></div>
+          <div class="text-white-50 small">vs <%= stats.prevLabel || 'previous period' %>: <%= formatDelta(stats.deltas.netSales) %></div>
+          <div class="text-white-50 small">All-time net: $<%= formatMoney(stats.allTimeNetSales) %></div>
         </div>
       </div>
       <div class="col-12 col-md-6 col-lg-3">
         <div class="stat-card">
-          <div class="stat-title">Total Orders</div>
+          <div class="stat-title">Orders (<%= stats.rangeLabel %>)</div>
           <div class="stat-value"><%= stats.totalOrders %></div>
+          <div class="text-white-50 small">vs <%= stats.prevLabel || 'previous period' %>: <%= formatDelta(stats.deltas.orders) %></div>
         </div>
       </div>
       <div class="col-12 col-md-6 col-lg-3">
         <div class="stat-card">
-          <div class="stat-title">Total Users</div>
+          <div class="stat-title">New Users (<%= stats.rangeLabel %>)</div>
           <div class="stat-value"><%= stats.totalUsers %></div>
+          <div class="text-white-50 small">vs <%= stats.prevLabel || 'previous period' %>: <%= formatDelta(stats.deltas.users) %></div>
         </div>
       </div>
       <div class="col-12 col-md-6 col-lg-3">
         <div class="stat-card">
-          <div class="stat-title">Trades</div>
+          <div class="stat-title">Trades (<%= stats.rangeLabel %>)</div>
           <div class="stat-value"><%= stats.totalTrades || 0 %></div>
+          <div class="text-white-50 small">vs <%= stats.prevLabel || 'previous period' %>: <%= formatDelta(stats.deltas.trades) %></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="stat-card">
+          <div class="stat-title">Gross Sales</div>
+          <div class="stat-value">$<%= formatMoney(stats.grossSales) %></div>
+          <div class="text-white-50 small">vs <%= stats.prevLabel || 'previous period' %>: <%= formatDelta(stats.deltas.grossSales) %></div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="stat-card">
+          <div class="stat-title">Refunded Amount</div>
+          <div class="stat-value">$<%= formatMoney(stats.refundedAmount) %></div>
+          <div class="text-white-50 small">vs <%= stats.prevLabel || 'previous period' %>: <%= formatDelta(stats.deltas.refundedAmount) %></div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="stat-card">
+          <div class="stat-title">Average Order Value</div>
+          <div class="stat-value">$<%= formatMoney(stats.ratios.aov) %></div>
+          <div class="text-white-50 small">Net sales / orders</div>
         </div>
       </div>
     </div>
 
     <div class="row g-3 mb-4">
       <div class="col-12 col-lg-6">
-        <div class="card-frosted h-100">
-          <h6 class="text-white-50 text-uppercase mb-1">Best Seller</h6>
-          <% if (stats.bestProduct) { %>
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <div class="fw-bold fs-5"><%= stats.bestProduct.productName %></div>
-                <div class="text-white-50 small">Sold: <%= stats.bestProduct.qty %> units</div>
-              </div>
-              <span class="pill">Revenue $<%= Number(stats.bestProduct.revenue).toFixed(2) %></span>
-            </div>
-          <% } else { %>
-            <div class="text-white-50">No sales data yet.</div>
-          <% } %>
+        <div class="stat-card h-100">
+          <div class="stat-title">Refund Rate</div>
+          <div class="stat-value"><%= formatPercent(stats.ratios.refundRate) %></div>
+          <div class="text-white-50 small">Refunded amount / gross sales</div>
         </div>
       </div>
       <div class="col-12 col-lg-6">
-        <div class="card-frosted h-100">
-          <h6 class="text-white-50 text-uppercase mb-1">Top Customer</h6>
-          <% if (stats.bestCustomer) { %>
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <div class="fw-bold fs-5"><%= stats.bestCustomer.username %></div>
-                <div class="text-white-50 small"><%= stats.bestCustomer.email %></div>
-                <div class="text-white-50 small">Orders: <%= stats.bestCustomer.orderCount %></div>
-              </div>
-              <span class="pill">Spent $<%= Number(stats.bestCustomer.totalSpent).toFixed(2) %></span>
-            </div>
-          <% } else { %>
-            <div class="text-white-50">No customer data yet.</div>
-          <% } %>
+        <div class="stat-card h-100">
+          <div class="stat-title">Net Sales Note</div>
+          <div class="stat-value">$<%= formatMoney(stats.netSales) %></div>
+          <div class="text-white-50 small">Net sales reflect total revenue after approved refunds.</div>
         </div>
       </div>
     </div>
 
     <div class="card-frosted mb-4">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <h6 class="text-white-50 text-uppercase mb-0">Last 7 Days Revenue</h6>
-        <small class="text-white-50">Trailing history</small>
+        <div>
+          <h6 class="text-white-50 text-uppercase mb-0">Performance Trend</h6>
+          <small class="text-white-50"><%= stats.rangeLabel %> vs <%= stats.prevLabel || 'previous period' %></small>
+        </div>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Chart metric toggle">
+          <button class="btn btn-outline-light active" type="button" data-metric="net_sales">Net Sales</button>
+          <button class="btn btn-outline-light" type="button" data-metric="orders">Orders</button>
+          <button class="btn btn-outline-light" type="button" data-metric="refunds">Refunds</button>
+        </div>
       </div>
+      <% if (stats.chart && stats.chart.groupByLabel) { %>
+        <div class="text-white-50 small mb-2">Grouped by: <%= stats.chart.groupByLabel %></div>
+        <div class="text-white-50 small mb-2">Solid line: current period, dashed line: previous period.</div>
+      <% } %>
       <canvas id="revenueChart" height="110"></canvas>
     </div>
 
@@ -184,8 +233,8 @@
                     <div><%= o.username %></div>
                     <div class="text-white-50 small"><%= o.email %></div>
                   </td>
-                  <td>$<%= Number(o.total).toFixed(2) %></td>
-                  <td><%= new Date(o.createdAt).toLocaleString() %></td>
+                  <td>$<%= formatMoney(o.total_amount !== undefined ? o.total_amount : o.total) %></td>
+                  <td><%= new Date(o.created_at || o.createdAt).toLocaleString() %></td>
                 </tr>
               <% }) %>
             </tbody>
@@ -212,33 +261,101 @@
     (function() {
       const ctx = document.getElementById('revenueChart');
       if (!ctx) return;
-      const revenueData = <%- JSON.stringify(stats.revenueByDay || []) %>;
-      const labels = revenueData.map(r => r.day);
-      const data = revenueData.map(r => r.revenue);
+      const chartData = <%- JSON.stringify(stats.chart || {}) %>;
+      const labels = chartData.labels || [];
+      const metrics = chartData.current || {};
+      const previous = chartData.previous || {};
+      const groupByLabel = chartData.groupByLabel || 'Day';
+      const metricLabels = {
+        net_sales: 'Net Sales',
+        orders: 'Orders',
+        refunds: 'Refunds'
+      };
+      const metricFormatters = {
+        net_sales: v => `$${Number(v || 0).toFixed(2)}`,
+        refunds: v => `$${Number(v || 0).toFixed(2)}`,
+        orders: v => `${Number(v || 0)}`
+      };
 
-      new Chart(ctx, {
+      let activeMetric = 'net_sales';
+      const buttons = Array.from(document.querySelectorAll('[data-metric]'));
+
+      const buildDatasets = metric => ([
+        {
+          label: `${metricLabels[metric]} (Current)`,
+          data: metrics[metric] || [],
+          borderColor: 'rgba(125,243,212,0.85)',
+          backgroundColor: 'rgba(125,243,212,0.18)',
+          tension: 0.25,
+          fill: true,
+          pointRadius: 3,
+          pointBackgroundColor: '#fff'
+        },
+        {
+          label: `${metricLabels[metric]} (Previous)`,
+          data: previous[metric] || [],
+          borderColor: 'rgba(255,255,255,0.5)',
+          backgroundColor: 'rgba(255,255,255,0)',
+          tension: 0.25,
+          fill: false,
+          borderDash: [6, 4],
+          pointRadius: 2,
+          pointBackgroundColor: '#fff'
+        }
+      ]);
+
+      const chart = new Chart(ctx, {
         type: 'line',
         data: {
           labels,
-          datasets: [{
-            label: 'Revenue',
-            data,
-            borderColor: 'rgba(125,243,212,0.85)',
-            backgroundColor: 'rgba(125,243,212,0.18)',
-            tension: 0.25,
-            fill: true,
-            pointRadius: 3,
-            pointBackgroundColor: '#fff'
-          }]
+          datasets: buildDatasets(activeMetric)
         },
         options: {
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: items => {
+                  const label = items && items.length ? items[0].label : '';
+                  return `${groupByLabel}: ${label}`;
+                },
+                label: context => {
+                  const formatter = metricFormatters[activeMetric] || (v => v);
+                  const label = context.datasetIndex === 0 ? 'Current' : 'Previous';
+                  const val = context.raw === null ? '—' : formatter(context.raw);
+                  return `${label}: ${val}`;
+                }
+              }
+            }
+          },
           scales: {
             x: { ticks: { color: 'rgba(255,255,255,0.7)' }, grid: { display: false } },
             y: { ticks: { color: 'rgba(255,255,255,0.7)' }, grid: { color: 'rgba(255,255,255,0.08)' } }
           }
         }
       });
+
+      buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const metric = btn.getAttribute('data-metric');
+          if (!metric || metric === activeMetric) return;
+          activeMetric = metric;
+          buttons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          chart.data.datasets = buildDatasets(activeMetric);
+          chart.update();
+        });
+      });
+
+      ctx.onclick = (evt) => {
+        if (groupByLabel !== 'Day') return;
+        const points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+        if (!points.length) return;
+        const idx = points[0].index;
+        const label = labels[idx];
+        if (!label) return;
+        window.location.href = `/admin/reports/day?date=${encodeURIComponent(label)}`;
+      };
     })();
   </script>
 

@@ -18,6 +18,7 @@ router.get('/admin/users/:id/delete', requireAuth, requireRole('admin'), AdminCo
 router.get('/admin/audit-log', requireAuth, requireRole('admin'), AdminController.auditLog);
 router.get('/admin/trades', requireAuth, requireRole('admin'), AdminController.trades);
 router.get('/admin/dashboard', requireAuth, requireRole('admin'), AdminController.dashboard);
+router.get('/admin/reports/day', requireAuth, requireRole('admin'), AdminController.dailyReport);
 router.get('/admin/orders-status', requireAuth, requireRole('admin'), AdminController.orderStatus);
 router.get('/admin/refunds', requireAuth, requireRole('admin'), AdminController.refundRequestsPage);
 router.post('/admin/orders/:id/send', requireAuth, requireRole('admin'), AdminController.adminSendOrder);
