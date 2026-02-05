@@ -1,13 +1,3 @@
-<!--
- I declare that this code was written by me. 
- I will not copy or allow others to copy my code. 
- I understand that copying code is considered as plagiarism.
- 
- Student Name: NGJINHENG 
- Student ID: 24024323 
- Class: C372-003-E63C
- Date created: 1/2/2026
-  -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="/theme.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <title>Admin - Order Status</title>
+  <title>Admin - Refunds</title>
   <style>
     .custom-navbar { background-color:transparent !important; padding-top:1.05rem; padding-bottom:1.05rem; min-height:80px; z-index:1030; box-shadow:none; }
     .custom-navbar .navbar-brand { font-weight:700; letter-spacing:-0.01em; }
@@ -26,9 +16,6 @@
     .brand-sub { font-size:0.68rem; font-weight:500; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.75); margin-top:0.15rem; }
     .card-frosted { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 1rem; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 18px 48px rgba(0,0,0,0.55); padding: 1.25rem; }
     .badge-soft { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #fff; border-radius: 999px; padding: 0.3rem 0.65rem; font-weight: 700; letter-spacing: 0.02em; }
-    .item-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 0.45rem; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
-    .order-row { background: rgba(8, 24, 48, 0.62); border: 1px solid rgba(255,255,255,0.08); border-radius: 0.8rem; padding: 1rem; }
-    .order-row + .order-row { margin-top: 0.75rem; }
     .refund-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); border-radius: 0.8rem; padding: 1rem; }
   </style>
 </head>
@@ -44,7 +31,7 @@
         <ul class="navbar-nav ms-auto">
           <li class="nav-item d-flex align-items-center me-3"><span class="text-light small">Signed in as <strong><%= user.username %></strong></span></li>
           <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/admin/dashboard">Dashboard</a></li>
-          <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/inventory">Inventory</a></li>
+          <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/admin/orders-status">Order Status</a></li>
           <li class="nav-item ms-2"><a class="btn btn-outline-light btn-sm btn-cta btn-minimal" href="/logout">Logout</a></li>
         </ul>
       </div>
@@ -52,72 +39,15 @@
   </nav>
 
   <main class="container flex-grow-1 py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-      <div>
-        <h4 class="fw-bold mb-1">Order Status Management</h4>
-        <small class="text-white-50">Track and update buyer orders.</small>
-      </div>
-      <a class="btn btn-outline-light btn-sm" href="/admin/refunds">Refund Requests</a>
-    </div>
-
-    <% const pendingRefundsByOrder = (refundRequests || []).reduce((acc, r) => { acc[r.order_id] = r; return acc; }, {}); %>
-    <div class="card-frosted mb-4">
-      <h6 class="text-white-50 text-uppercase mb-3">Orders</h6>
-      <% if (!orders || !orders.length) { %>
-        <div class="text-white-50">No orders found.</div>
-      <% } else { %>
-        <% orders.forEach(o => { %>
-          <div class="order-row">
-            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-              <div>
-                <div class="fw-bold">Order #<%= o.id %></div>
-                <div class="text-white-50 small"><%= o.username %> • <%= o.email %></div>
-                <div class="text-white-50 small"><%= new Date(o.createdAt).toLocaleString() %></div>
-              </div>
-              <div class="text-end">
-                <div class="badge-soft">$<%= Number(o.total).toFixed(2) %></div>
-                <% const pendingRefund = pendingRefundsByOrder[o.id]; %>
-                <div class="mt-2">
-                  Status:
-                  <span class="badge-soft">
-                    <%= pendingRefund ? 'REQUEST REFUND' : ((o.status === 'REFUND') ? 'REFUNDED' : (o.status || '').replace('_', ' ')) %>
-                  </span>
-                </div>
-                <% if (pendingRefund) { %>
-                  <div class="text-white-50 small mt-1">Reason: <%= pendingRefund.reason %></div>
-                <% } %>
-              </div>
-            </div>
-
-            <% if (o.items && o.items.length) { %>
-              <div class="d-flex flex-wrap gap-2 mt-3">
-                <% o.items.forEach(item => { %>
-                  <div class="d-flex align-items-center gap-2">
-                    <img class="item-thumb" src="/images/<%= item.image %>" alt="<%= item.productName %>">
-                    <span class="small text-white-50"><%= item.productName %> × <%= item.quantity %></span>
-                  </div>
-                <% }) %>
-              </div>
-            <% } %>
-
-            <div class="mt-3 d-flex flex-wrap gap-2">
-              <% if (o.status === 'TO_SHIP') { %>
-                <form method="POST" action="/admin/orders/<%= o.id %>/send">
-                  <button type="submit" class="btn btn-outline-light btn-sm">Send Order</button>
-                </form>
-              <% } %>
-              <a class="btn btn-outline-light btn-sm" href="/admin/users/<%= o.userId %>/orders">View User Orders</a>
-            </div>
-          </div>
-        <% }) %>
-      <% } %>
-    </div>
-
     <div class="card-frosted">
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <h6 class="text-white-50 text-uppercase mb-0">Pending Refund Requests</h6>
+        <div>
+          <h4 class="fw-bold mb-1">Refund Requests</h4>
+          <small class="text-white-50">Approve or reject refund requests.</small>
+        </div>
         <div class="text-white-50 small">Refund History: <a class="text-white" href="/admin/audit-log">View Audit Log</a></div>
       </div>
+
       <% if (!refundRequests || !refundRequests.length) { %>
         <div class="text-white-50">No pending refund requests.</div>
       <% } else { %>
@@ -134,10 +64,10 @@
                       <form method="POST" action="/admin/orders/<%= r.order_id %>/refund-approve">
                         <button type="submit" class="btn btn-success btn-sm">Approve</button>
                       </form>
-                    <form method="POST" action="/admin/orders/<%= r.order_id %>/refund-reject">
-                      <button type="submit" class="btn btn-danger btn-sm">Reject</button>
-                    </form>
-                  </div>
+                      <form method="POST" action="/admin/orders/<%= r.order_id %>/refund-reject">
+                        <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+                      </form>
+                    </div>
                   </div>
                   <div class="text-white-50 small">Description: <%= r.description || 'N/A' %></div>
                 </div>

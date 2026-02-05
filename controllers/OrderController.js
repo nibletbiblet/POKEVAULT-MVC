@@ -10,6 +10,7 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Transaction = require('../models/Transaction');
 const WalletModel = require('../models/WalletModel');
+const RefundRequestModel = require('../models/RefundRequestModel');
 const CoinsModel = require('../models/CoinsModel');
 const paypal = require('../services/paypal');
 const { applyCoinsToOrder, creditCoins, getAppliedCoins, round2 } = require('../services/coinsHelper');
@@ -980,7 +981,24 @@ const OrderController = {
       });
 
       const orders = Array.from(ordersById.values());
-      res.render('purchases', { orders, user, activeTab });
+      if (activeTab !== 'COMPLETED' || !orders.length) {
+        return res.render('purchases', { orders, user, activeTab });
+      }
+
+      const orderIds = orders.map(o => o.id);
+      RefundRequestModel.getLatestByOrderIds(orderIds, (rrErr, requests) => {
+        if (rrErr) {
+          console.error('Error fetching refund requests:', rrErr);
+          return res.render('purchases', { orders, user, activeTab });
+        }
+        const byOrderId = new Map();
+        (requests || []).forEach(r => byOrderId.set(r.order_id, r));
+        const enriched = orders.map(o => ({
+          ...o,
+          refund: byOrderId.get(o.id) || null
+        }));
+        return res.render('purchases', { orders: enriched, user, activeTab });
+      });
     });
   },
 

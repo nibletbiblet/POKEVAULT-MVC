@@ -36,6 +36,31 @@ class RefundRequestModel {
     `;
     db.query(sql, [status, requestId], callback);
   }
+
+  static updateStatusWithRejectReason(requestId, status, rejectReason, callback) {
+    const sql = `
+      UPDATE refund_requests
+      SET status = ?, reject_reason = ?
+      WHERE id = ?
+    `;
+    db.query(sql, [status, rejectReason || null, requestId], callback);
+  }
+
+  static getLatestByOrderIds(orderIds, callback) {
+    if (!orderIds || !orderIds.length) return callback(null, []);
+    const placeholders = orderIds.map(() => '?').join(', ');
+    const sql = `
+      SELECT r.*
+      FROM refund_requests r
+      INNER JOIN (
+        SELECT order_id, MAX(id) AS max_id
+        FROM refund_requests
+        WHERE order_id IN (${placeholders})
+        GROUP BY order_id
+      ) latest ON latest.max_id = r.id
+    `;
+    db.query(sql, orderIds, callback);
+  }
 }
 
 module.exports = RefundRequestModel;

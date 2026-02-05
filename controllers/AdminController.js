@@ -154,6 +154,66 @@ const AdminController = {
     }
   },
 
+  async refundRequestsPage(req, res) {
+    try {
+      let refundRequests = [];
+      try {
+        refundRequests = await runQuery(`
+          SELECT
+            r.id,
+            r.order_id,
+            r.user_id,
+            r.reason,
+            r.description,
+            r.status,
+            r.created_at,
+            o.total,
+            o.status AS orderStatus,
+            u.username,
+            u.email
+          FROM refund_requests r
+          JOIN orders o ON o.id = r.order_id
+          JOIN users u ON u.id = r.user_id
+          WHERE r.status = 'PENDING'
+          ORDER BY r.created_at DESC
+        `);
+      } catch (err) {
+        if (err && err.code === 'ER_NO_SUCH_TABLE' && String(err.sqlMessage || '').includes('refund_requests')) {
+          refundRequests = [];
+        } else if (err && err.code === 'ER_BAD_FIELD_ERROR' && String(err.sqlMessage || '').includes('status')) {
+          refundRequests = await runQuery(`
+            SELECT
+              r.id,
+              r.order_id,
+              r.user_id,
+              r.reason,
+              r.description,
+              r.status,
+              r.created_at,
+              o.total,
+              u.username,
+              u.email
+            FROM refund_requests r
+            JOIN orders o ON o.id = r.order_id
+            JOIN users u ON u.id = r.user_id
+            WHERE r.status = 'PENDING'
+            ORDER BY r.created_at DESC
+          `);
+        } else {
+          throw err;
+        }
+      }
+
+      res.render('adminRefunds', {
+        user: req.session.user,
+        refundRequests
+      });
+    } catch (err) {
+      console.error('Error loading refund requests:', err);
+      res.status(500).send('Database error');
+    }
+  },
+
   adminSendOrder(req, res) {
     const orderId = req.params.id;
     Order.getById(orderId, (err, order) => {

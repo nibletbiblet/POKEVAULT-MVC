@@ -19,21 +19,37 @@ const canRequestRefund = (status) => {
 exports.refundPage = (req, res) => {
   const orderId = req.params.id;
   const userId = req.session.user.id;
-  const reason = req.query.reason || 'RECEIVED_ISSUE';
+  const reason = req.query.reason || '';
 
   Order.getById(orderId, (err, order) => {
     if (err || !order) return res.status(404).send('Order not found');
     if (order.userId !== userId || !canRequestRefund(order.status)) {
       return res.status(403).send('Unauthorized');
     }
+    RefundRequestModel.getByOrder(orderId, (err2, rows) => {
+      if (!err2 && rows && rows.length) {
+        if (rows[0].status === 'PENDING') {
+          req.flash('error', 'Refund request already pending.');
+          return res.redirect('/purchases?tab=PENDING');
+        }
+        if (rows[0].status === 'REJECTED') {
+          req.flash('error', 'Refund request was rejected and cannot be requested again.');
+          return res.redirect('/purchases?tab=COMPLETED');
+        }
+        if (rows[0].status === 'APPROVED') {
+          req.flash('error', 'Refund request already approved.');
+          return res.redirect('/purchases?tab=REFUND');
+        }
+      }
 
-    Order.getItems(orderId, (err2, items) => {
-      if (err2) return res.status(500).send('Failed to load items');
-      res.render('orders/refundRequest', {
-        order,
-        items,
-        reason,
-        user: req.session.user
+      Order.getItems(orderId, (err3, items) => {
+        if (err3) return res.status(500).send('Failed to load items');
+        res.render('orders/refundRequest', {
+          order,
+          items,
+          reason,
+          user: req.session.user
+        });
       });
     });
   });
@@ -42,7 +58,10 @@ exports.refundPage = (req, res) => {
 exports.refundSubmit = (req, res) => {
   const orderId = req.params.id;
   const userId = req.session.user.id;
-  const { reason, description } = req.body;
+  const reasonRaw = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+  const descriptionRaw = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+  const reason = reasonRaw;
+  const description = descriptionRaw || null;
 
   Order.getById(orderId, (err, order) => {
     if (err || !order) return res.status(404).send('Order not found');
@@ -50,11 +69,26 @@ exports.refundSubmit = (req, res) => {
       return res.status(403).send('Unauthorized');
     }
 
+    if (!reason) {
+      req.flash('error', 'Refund reason is required.');
+      return res.redirect(`/orders/${orderId}/refund`);
+    }
+
     RefundRequestModel.getByOrder(orderId, (err2, rows) => {
       if (err2) return res.status(500).send('Failed to create refund request');
-      if (rows && rows.length && rows[0].status === 'PENDING') {
-        req.flash('error', 'Refund request already pending.');
-        return res.redirect('/orders');
+      if (rows && rows.length) {
+        if (rows[0].status === 'PENDING') {
+          req.flash('error', 'Refund request already pending.');
+          return res.redirect('/orders');
+        }
+        if (rows[0].status === 'REJECTED') {
+          req.flash('error', 'Refund request was rejected and cannot be requested again.');
+          return res.redirect('/orders');
+        }
+        if (rows[0].status === 'APPROVED') {
+          req.flash('error', 'Refund request already approved.');
+          return res.redirect('/orders');
+        }
       }
 
       RefundRequestModel.createRequest(orderId, userId, reason, description, err3 => {
@@ -108,8 +142,7 @@ exports.adminApprove = (req, res) => {
 
 exports.adminReject = (req, res) => {
   const orderId = req.params.id;
-
-  RefundRequestModel.getByOrder(orderId, (err, rows) => {
+    RefundRequestModel.getByOrder(orderId, (err, rows) => {
     if (err || !rows.length) return res.status(404).send('Refund request not found');
 
     const request = rows[0];

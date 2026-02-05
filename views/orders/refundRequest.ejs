@@ -85,20 +85,12 @@
 
       <form method="POST" action="/orders/<%= order.id %>/refund">
         <div class="mb-3">
-          <label class="form-label fw-semibold">Reason</label>
-          <select class="form-select input-ghost" name="reason" id="refundReason" required>
-            <option value="RECEIVED_ISSUE" <%= reason === 'RECEIVED_ISSUE' ? 'selected' : '' %>>Item damaged or wrong</option>
-            <option value="MISSING_ITEMS" <%= reason === 'MISSING_ITEMS' ? 'selected' : '' %>>Missing items</option>
-            <option value="OTHER" <%= reason === 'OTHER' ? 'selected' : '' %>>Other</option>
-          </select>
-        </div>
-        <div class="mb-3" id="otherReasonWrap" style="display:none;">
-          <label class="form-label fw-semibold">Other reason</label>
-          <input class="form-control input-ghost" type="text" name="otherReason" id="otherReasonInput" placeholder="Please specify the reason" maxlength="120">
+          <label class="form-label fw-semibold">Refund Reason</label>
+          <input class="form-control input-ghost" type="text" name="reason" placeholder="Tell us the reason for your refund" maxlength="120" required value="<%= reason || '' %>">
         </div>
         <div class="mb-3">
-          <label class="form-label fw-semibold">Description</label>
-          <textarea class="form-control input-ghost" name="description" rows="4" placeholder="Tell us what went wrong..." required></textarea>
+          <label class="form-label fw-semibold">Details (optional)</label>
+          <textarea class="form-control input-ghost" name="description" rows="4" placeholder="Add more context if needed..."></textarea>
         </div>
         <div class="d-flex gap-2">
           <button type="submit" class="btn btn-cta">Submit Refund Request</button>
@@ -107,24 +99,5 @@
       </form>
     </div>
   </main>
-  <script>
-    (function () {
-      const reasonSelect = document.getElementById('refundReason');
-      const otherWrap = document.getElementById('otherReasonWrap');
-      const otherInput = document.getElementById('otherReasonInput');
-
-      const syncOtherReason = () => {
-        const isOther = reasonSelect && reasonSelect.value === 'OTHER';
-        if (otherWrap) otherWrap.style.display = isOther ? 'block' : 'none';
-        if (otherInput) otherInput.required = isOther;
-        if (!isOther && otherInput) otherInput.value = '';
-      };
-
-      if (reasonSelect) {
-        reasonSelect.addEventListener('change', syncOtherReason);
-        syncOtherReason();
-      }
-    })();
-  </script>
 </body>
 </html>
