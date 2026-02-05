@@ -12,12 +12,14 @@ const Transaction = require('../models/Transaction');
 const WalletModel = require('../models/WalletModel');
 const CoinsModel = require('../models/CoinsModel');
 const paypal = require('../services/paypal');
-const { applyCoinsToOrder, creditCoins, getAppliedCoins } = require('../services/coinsHelper');
+const { applyCoinsToOrder, creditCoins, getAppliedCoins, round2 } = require('../services/coinsHelper');
 const Stripe = require('stripe');
 const db = require('../db');
 
 const GST_RATE = 0.09;
 const DELIVERY_RATE = 0.15;
+const METAMASK_MERCHANT = (process.env.METAMASK_MERCHANT_ADDRESS || '').trim();
+const ETH_SGD_RATE = Number(process.env.ETH_SGD_RATE || 0);
 const STRIPE_SECRET =
   process.env.STRIPE_SECRET_KEY ||
   process.env.STRIPE_SECRET ||
@@ -221,6 +223,10 @@ const OrderController = {
     if (!cart.length) {
       req.flash('error', 'Your cart is empty.');
       return res.redirect('/shopping');
+    }
+    if (paymentMethod === 'metamask') {
+      req.flash('error', 'Please complete MetaMask payment to place your order.');
+      return res.redirect('/checkout');
     }
 
     const promoCode = req.session.promoCode || null;
@@ -550,6 +556,124 @@ const OrderController = {
       console.error(err);
       res.status(500).json({ error: err.message });
     }
+  },
+  metamaskPrepare(req, res) {
+    const cart = req.session.cart || [];
+    const user = req.session.user;
+    const address = (req.body.address || '').trim();
+
+    if (!METAMASK_MERCHANT || !ETH_SGD_RATE) {
+      return res.status(500).json({ error: 'MetaMask is not configured.' });
+    }
+    if (!cart.length) {
+      return res.status(400).json({ error: 'Cart is empty' });
+    }
+
+    const promoCode = req.session.promoCode || null;
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    const ensureOrder = (promoApplied, done) => {
+      const totals = computeTotals(cart, promoApplied);
+      if (req.session.toPayOrderId) {
+        return done(req.session.toPayOrderId, totals);
+      }
+
+      const orderData = { userId: user.id, total: totals.total, address: address || null };
+      Order.create(orderData, cart, (err, result) => {
+        if (err) return res.status(500).json({ error: 'Failed to create order' });
+        Order.updateStatus(result.orderId, 'TO_PAY', () => {
+          req.session.toPayOrderId = result.orderId;
+          req.session.save(() => done(result.orderId, totals));
+        });
+      });
+    };
+
+    const respondWithTotals = (orderId, totals) => {
+      getAppliedCoins(req, user.id, totals.total, (coinsErr, coinsApplied) => {
+        if (coinsErr) {
+          return res.status(500).json({ error: 'Failed to apply coins' });
+        }
+        const payableTotal = round2(Math.max(0, totals.total - coinsApplied));
+        if (payableTotal <= 0) {
+          return res.status(400).json({ error: 'Total payable must be greater than zero.' });
+        }
+        const ethAmount = (payableTotal / ETH_SGD_RATE);
+        return res.json({
+          orderId,
+          payableTotal,
+          ethAmount: ethAmount.toFixed(6),
+          merchantAddress: METAMASK_MERCHANT
+        });
+      });
+    };
+
+    if (promoCode) {
+      validatePromo(promoCode, subtotal, (err, promo) => {
+        if (err) return ensureOrder(null, respondWithTotals);
+        return ensureOrder(promo, respondWithTotals);
+      });
+    } else {
+      ensureOrder(null, respondWithTotals);
+    }
+  },
+  metamaskConfirm(req, res) {
+    const user = req.session.user;
+    const { orderId, txHash } = req.body || {};
+
+    if (!orderId || !txHash) {
+      return res.status(400).json({ error: 'Missing orderId or txHash' });
+    }
+    if (req.session.toPayOrderId && Number(orderId) !== Number(req.session.toPayOrderId)) {
+      return res.status(400).json({ error: 'Order mismatch' });
+    }
+
+    Order.getById(orderId, (err, order) => {
+      if (err || !order) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+      if (order.userId !== user.id) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const totalAmount = Number(order.total);
+      applyCoinsToOrder(req, user.id, orderId, totalAmount, (err2, netAmount) => {
+        if (err2) {
+          return res.status(400).json({ error: err2.message || 'Failed to apply coins' });
+        }
+
+        Order.updateStatus(orderId, 'TO_SHIP', (err3) => {
+          if (err3) {
+            return res.status(500).json({ error: 'Failed to update order status' });
+          }
+
+          Transaction.create({
+            orderId,
+            method: 'METAMASK',
+            status: 'COMPLETED',
+            reference: txHash,
+            amount: netAmount
+          }, () => {
+            creditCoins(user.id, netAmount, () => {});
+            req.session.orderPayments = req.session.orderPayments || {};
+            req.session.orderPayments[orderId] = {
+              method: 'MetaMask',
+              promo: req.session.promoCode ? { code: req.session.promoCode, amount: req.session.promoAmount || 0 } : null
+            };
+            req.session.lastOrderId = orderId;
+            req.session.toPayOrderId = null;
+            req.session.coinsApplied = 0;
+            req.session.promoCode = null;
+            req.session.promoAmount = null;
+            req.session.cart = [];
+            req.session.save(() => res.json({
+              success: true,
+              orderId,
+              redirectUrl: `/orders/${orderId}`
+            }));
+          });
+        });
+      });
+    });
   },
 
   stripeCreateSession(req, res) {

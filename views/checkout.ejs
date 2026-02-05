@@ -277,6 +277,10 @@ background-size: cover;
                   <input type="radio" name="paymentMethod" value="nets">
                   <span>NETS</span>
                 </label>
+                <label class="pill-choice">
+                  <input type="radio" name="paymentMethod" value="metamask">
+                  <span>MetaMask</span>
+                </label>
                 <label class="pill-choice <%= walletEnabled ? '' : 'is-disabled' %>">
                   <input type="radio" name="paymentMethod" value="wallet" <%= walletEnabled ? '' : 'disabled' %>>
                   <span>PokeVault Pay</span>
@@ -325,6 +329,12 @@ background-size: cover;
               </div>
               <small class="text-white-50 d-block mt-2">You will be redirected to a NETS QR payment screen.</small>
             </div>
+            <div class="mb-3" id="metamask-section" style="display:none;">
+              <div class="d-grid">
+                <button type="button" class="btn btn-cta" id="metamaskPayBtn">Pay with MetaMask</button>
+              </div>
+              <small class="text-white-50 d-block mt-2" id="metamaskStatus">You will approve the ETH transfer in MetaMask.</small>
+            </div>
             <div class="mb-3" id="bnpl-section" style="display:none;">
               <div class="fw-semibold mb-2">Choose installment plan</div>
               <div class="bnpl-plan">
@@ -369,12 +379,15 @@ background-size: cover;
     (function() {
       const paymentRadios = Array.from(document.querySelectorAll('input[name="paymentMethod"]'));
       const netsSection = document.getElementById('nets-section');
+      const metamaskSection = document.getElementById('metamask-section');
       const paypalSection = document.getElementById('paypal-section');
       const stripeSection = document.getElementById('stripe-section');
       const walletSection = document.getElementById('wallet-section');
       const bnplSection = document.getElementById('bnpl-section');
       const placeOrderBtn = document.getElementById('placeOrderBtn');
       const stripeCheckoutBtn = document.getElementById('stripeCheckoutBtn');
+      const metamaskBtn = document.getElementById('metamaskPayBtn');
+      const metamaskStatus = document.getElementById('metamaskStatus');
       const bnplContinueBtn = document.getElementById('bnplContinueBtn');
       const bnplMonthly = document.getElementById('bnplMonthly');
       const bnplPlanRadios = Array.from(document.querySelectorAll('input[name="bnplPlan"]'));
@@ -386,12 +399,14 @@ background-size: cover;
       const updatePaymentUI = () => {
         const selected = paymentRadios.find(radio => radio.checked);
         const isNets = selected && selected.value === 'nets';
+        const isMetamask = selected && selected.value === 'metamask';
         const isPaypal = selected && selected.value === 'paypal';
         const isStripe = selected && selected.value === 'stripe';
         const isWallet = selected && selected.value === 'wallet';
         const isBnpl = bnplEnabled && selected && selected.value === 'bnpl';
         const showPlaceOrder = selected && selected.value === 'cash';
         if (netsSection) netsSection.style.display = isNets ? 'block' : 'none';
+        if (metamaskSection) metamaskSection.style.display = isMetamask ? 'block' : 'none';
         if (paypalSection) paypalSection.style.display = isPaypal ? 'block' : 'none';
         if (stripeSection) stripeSection.style.display = isStripe ? 'block' : 'none';
         if (walletSection) walletSection.style.display = isWallet ? 'block' : 'none';
@@ -451,6 +466,100 @@ background-size: cover;
             alert(err.message || 'Stripe checkout failed.');
             stripeCheckoutBtn.disabled = false;
             stripeCheckoutBtn.textContent = 'Pay with Stripe';
+          }
+        });
+      }
+
+      const toWeiHex = (ethAmountStr) => {
+        const [whole, fracRaw] = String(ethAmountStr).split('.');
+        const frac = (fracRaw || '').padEnd(18, '0').slice(0, 18);
+        const weiStr = `${whole || '0'}${frac}`;
+        const wei = BigInt(weiStr || '0');
+        return '0x' + wei.toString(16);
+      };
+      const ensureSepolia = async () => {
+        const targetChainId = '0xaa36a7';
+        const current = await window.ethereum.request({ method: 'eth_chainId' });
+        if (current === targetChainId) return true;
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: targetChainId }]
+          });
+          return true;
+        } catch (err) {
+          if (err && err.code === 4902) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: targetChainId,
+                chainName: 'Sepolia',
+                nativeCurrency: { name: 'SepoliaETH', symbol: 'SEP', decimals: 18 },
+                rpcUrls: ['https://rpc.sepolia.org'],
+                blockExplorerUrls: ['https://sepolia.etherscan.io']
+              }]
+            });
+            return true;
+          }
+          throw err;
+        }
+      };
+
+      if (metamaskBtn) {
+        metamaskBtn.addEventListener('click', async () => {
+          if (!window.ethereum) {
+            if (metamaskStatus) {
+              metamaskStatus.textContent = 'MetaMask not detected. Please install or enable it.';
+            }
+            return;
+          }
+          metamaskBtn.disabled = true;
+          if (metamaskStatus) metamaskStatus.textContent = 'Preparing MetaMask payment...';
+          try {
+            await ensureSepolia();
+            const payload = { address: addressInput ? addressInput.value : '' };
+            const prepRes = await fetch('/api/metamask/prepare', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            const prepData = await prepRes.json().catch(() => ({}));
+            if (!prepRes.ok || !prepData.orderId) {
+              throw new Error(prepData.error || 'Unable to prepare MetaMask payment.');
+            }
+
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const from = accounts && accounts[0];
+            if (!from) {
+              throw new Error('No MetaMask account selected.');
+            }
+
+            const value = toWeiHex(prepData.ethAmount);
+            if (metamaskStatus) {
+              metamaskStatus.textContent = `Send ${prepData.ethAmount} ETH to complete payment.`;
+            }
+            const txHash = await window.ethereum.request({
+              method: 'eth_sendTransaction',
+              params: [{
+                from,
+                to: prepData.merchantAddress,
+                value
+              }]
+            });
+
+            const confirmRes = await fetch('/api/metamask/confirm', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ orderId: prepData.orderId, txHash })
+            });
+            const confirmData = await confirmRes.json().catch(() => ({}));
+            if (!confirmRes.ok || !confirmData.success) {
+              throw new Error(confirmData.error || 'MetaMask payment failed.');
+            }
+            window.location.href = confirmData.redirectUrl || `/orders/${confirmData.orderId}`;
+          } catch (err) {
+            if (metamaskStatus) metamaskStatus.textContent = err.message || 'MetaMask payment failed.';
+            metamaskBtn.disabled = false;
           }
         });
       }

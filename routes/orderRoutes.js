@@ -25,6 +25,8 @@ router.post('/checkout/promo/remove', requireAuth, PromoController.remove);
 router.get('/purchases', requireAuth, OrderController.purchasesPage);
 router.post('/api/paypal/create-order', requireAuth, OrderController.paypalCreate);
 router.post('/api/paypal/capture-order', requireAuth, OrderController.paypalCapture);
+router.post('/api/metamask/prepare', requireAuth, OrderController.metamaskPrepare);
+router.post('/api/metamask/confirm', requireAuth, OrderController.metamaskConfirm);
 router.post('/api/stripe/create-checkout-session', requireAuth, OrderController.stripeCreateSession);
 router.get('/stripe/success', requireAuth, OrderController.stripeSuccess);
 router.get('/stripe/cancel', requireAuth, OrderController.stripeCancel);

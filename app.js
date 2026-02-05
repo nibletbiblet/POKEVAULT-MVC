@@ -4,7 +4,16 @@ const flash = require('connect-flash');
 const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
-try { require('dotenv').config(); } catch (err) { console.warn('dotenv not installed, skipping .env load'); }
+try {
+  const dotenv = require('dotenv');
+  const envPath = path.join(__dirname, '.env');
+  const result = dotenv.config({ path: envPath });
+  if (result.error) {
+    console.warn('dotenv failed to load .env:', result.error.message);
+  }
+} catch (err) {
+  console.warn('dotenv not installed, skipping .env load');
+}
 
 const productRoutes = require('./routes/productRoutes');
 const userRoutes = require('./routes/userRoutes');
