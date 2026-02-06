@@ -93,6 +93,16 @@
   </nav>
 
   <main class="container flex-grow-1 py-4">
+    <% if (messages && messages.length) { %>
+      <div class="alert alert-danger">
+        <% messages.forEach(m => { %><div><%= m %></div><% }) %>
+      </div>
+    <% } %>
+    <% if (success && success.length) { %>
+      <div class="alert alert-success">
+        <% success.forEach(m => { %><div><%= m %></div><% }) %>
+      </div>
+    <% } %>
     <div class="row g-3">
       <div class="col-lg-4">
         <div class="card-frosted">
@@ -102,6 +112,21 @@
             <div class="small text-white-50 mt-1">Stored-value balance (SGD)</div>
           </div>
           <a href="/wallet/topup" class="btn btn-cta w-100">Top Up Balance</a>
+          <hr class="border-secondary">
+          <div class="small text-white-50 mb-2">Withdraw Funds</div>
+          <form action="/wallet/withdraw" method="POST" class="d-grid gap-2">
+            <input type="number" min="0.01" step="0.01" name="amount" class="form-control" placeholder="Amount (SGD)" required>
+            <input type="text" name="destination" class="form-control" placeholder="Destination (bank/paynow)" required>
+            <button type="submit" class="btn btn-outline-light btn-sm">Withdraw</button>
+          </form>
+          <hr class="border-secondary">
+          <div class="small text-white-50 mb-2">Transfer to Another User</div>
+          <form action="/wallet/transfer" method="POST" class="d-grid gap-2">
+            <input type="email" name="recipientEmail" class="form-control" placeholder="Recipient email" required>
+            <input type="number" min="0.01" step="0.01" name="amount" class="form-control" placeholder="Amount (SGD)" required>
+            <button type="submit" class="btn btn-outline-light btn-sm">Transfer</button>
+          </form>
+          <div class="text-white-50 small mt-2">Transfers of $<%= Number(amlAlertThreshold || 0).toFixed(0) %> and above are compliance-flagged.</div>
         </div>
       </div>
       <div class="col-lg-8">

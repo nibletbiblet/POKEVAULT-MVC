@@ -274,7 +274,8 @@
           <small class="text-white-50"><%= stats.rangeLabel %> vs <%= stats.prevLabel || 'previous period' %></small>
         </div>
         <div class="d-flex align-items-center gap-2">
-          <button type="button" class="btn btn-outline-light btn-sm" id="exportChartCsvBtn" data-url="/admin/dashboard.csv?range=<%= stats.rangeKey %>">Export CSV</button>
+          <button type="button" class="btn btn-outline-light btn-sm exportChartBtn" data-url="/admin/dashboard.csv?range=<%= stats.rangeKey %>">Export CSV</button>
+          <button type="button" class="btn btn-outline-light btn-sm exportChartBtn" data-url="/admin/dashboard.xlsx?range=<%= stats.rangeKey %>">Export Excel</button>
           <div class="btn-group btn-group-sm" role="group" aria-label="Chart metric toggle">
             <button class="btn btn-outline-light active" type="button" data-metric="net_sales">Net Sales</button>
             <button class="btn btn-outline-light" type="button" data-metric="orders">Orders</button>
@@ -461,29 +462,37 @@
   </div>
   <script>
     (function() {
-      const exportBtn = document.getElementById('exportChartCsvBtn');
+      const exportBtns = Array.from(document.querySelectorAll('.exportChartBtn'));
       const keyModal = document.getElementById('adminKeyModal');
       const keyInput = document.getElementById('adminKeyInput');
       const keyError = document.getElementById('adminKeyError');
       const confirmBtn = document.getElementById('adminKeyConfirm');
       const bootstrapModal = keyModal ? new bootstrap.Modal(keyModal) : null;
+      let pendingExportUrl = '';
 
-      if (!exportBtn) return;
-      exportBtn.addEventListener('click', () => {
-        if (keyError) keyError.textContent = '';
-        if (keyInput) keyInput.value = '';
-        if (bootstrapModal) bootstrapModal.show();
+      if (!exportBtns.length) return;
+      exportBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          pendingExportUrl = btn.dataset.url || '';
+          if (keyError) keyError.textContent = '';
+          if (keyInput) keyInput.value = '';
+          if (bootstrapModal) bootstrapModal.show();
+        });
       });
 
       if (confirmBtn) {
         confirmBtn.addEventListener('click', () => {
+          if (!pendingExportUrl) {
+            if (keyError) keyError.textContent = 'No export target selected.';
+            return;
+          }
           const adminKey = keyInput ? keyInput.value.trim() : '';
           if (!adminKey) {
             if (keyError) keyError.textContent = 'Admin key is required.';
             return;
           }
           if (!confirm('Are you sure you want to proceed? This action cannot be undone.')) return;
-          const baseUrl = exportBtn.dataset.url || '';
+          const baseUrl = pendingExportUrl;
           const sep = baseUrl.includes('?') ? '&' : '?';
           window.location.href = `${baseUrl}${sep}adminKey=${encodeURIComponent(adminKey)}`;
         });

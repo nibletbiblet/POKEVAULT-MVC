@@ -61,6 +61,8 @@ router.post('/wallet/topup/stripe/create-checkout-session', requireAuth, WalletC
 router.get('/wallet/topup/stripe/success', requireAuth, WalletController.topupStripeSuccess);
 router.get('/wallet/topup/stripe/cancel', requireAuth, WalletController.topupStripeCancel);
 router.post('/wallet/topup/nets', requireAuth, WalletController.topupNets);
+router.post('/wallet/withdraw', requireAuth, WalletController.withdraw);
+router.post('/wallet/transfer', requireAuth, WalletController.transfer);
 router.get('/wallet/receipt/:id', requireAuth, WalletController.receiptPage);
 
 // Refunds

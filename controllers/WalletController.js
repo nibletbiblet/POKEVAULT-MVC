@@ -19,6 +19,7 @@ const STRIPE_SECRET =
   process.env.STRIPE_SECRET ||
   process.env['Stripe.apiKey'];
 const stripe = STRIPE_SECRET ? Stripe(STRIPE_SECRET) : null;
+const AML_ALERT_THRESHOLD = Number(process.env.AML_ALERT_THRESHOLD || 5000);
 
 const buildBaseUrl = (req) => `${req.protocol}://${req.get('host')}`;
 
@@ -47,7 +48,10 @@ exports.walletPage = (req, res) => {
 
         res.render('wallet/index', {
           balance: Number(balance || 0),
-          transactions: transactions || []
+          transactions: transactions || [],
+          messages: req.flash('error'),
+          success: req.flash('success'),
+          amlAlertThreshold: AML_ALERT_THRESHOLD
         });
       });
     });
@@ -339,5 +343,146 @@ exports.receiptPage = (req, res) => {
     }
 
     res.render('wallet/receipt', { txn: rows[0] });
+  });
+};
+
+exports.withdraw = (req, res) => {
+  const userId = req.session.user.id;
+  const amount = Number(req.body.amount || 0);
+  const destination = String(req.body.destination || '').trim();
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    req.flash('error', 'Invalid withdrawal amount.');
+    return res.redirect('/wallet');
+  }
+  if (!destination) {
+    req.flash('error', 'Please provide a withdrawal destination.');
+    return res.redirect('/wallet');
+  }
+
+  WalletModel.ensureWallet(userId, (ensureErr) => {
+    if (ensureErr) {
+      console.error(ensureErr);
+      req.flash('error', 'Failed to access wallet.');
+      return res.redirect('/wallet');
+    }
+    const reference = `WITHDRAWAL:${destination.slice(0, 40)}`;
+    WalletModel.debit(userId, amount, reference, (err) => {
+      if (err) {
+        req.flash('error', err.message || 'Withdrawal failed.');
+        return res.redirect('/wallet');
+      }
+      req.flash('success', `Withdrawal of $${amount.toFixed(2)} submitted.`);
+      return res.redirect('/wallet');
+    });
+  });
+};
+
+exports.transfer = (req, res) => {
+  const sender = req.session.user;
+  const senderId = sender.id;
+  const amount = Number(req.body.amount || 0);
+  const recipientEmail = String(req.body.recipientEmail || '').trim().toLowerCase();
+
+  if (!recipientEmail) {
+    req.flash('error', 'Recipient email is required.');
+    return res.redirect('/wallet');
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    req.flash('error', 'Invalid transfer amount.');
+    return res.redirect('/wallet');
+  }
+  if (sender.email && recipientEmail === String(sender.email).toLowerCase()) {
+    req.flash('error', 'Cannot transfer to your own account.');
+    return res.redirect('/wallet');
+  }
+
+  const findUserSql = `
+    SELECT id, email
+    FROM users
+    WHERE LOWER(email) = ?
+      AND (isDeleted = 0 OR isDeleted IS NULL)
+    LIMIT 1
+  `;
+  db.query(findUserSql, [recipientEmail], (findErr, rows) => {
+    if (findErr) {
+      console.error(findErr);
+      req.flash('error', 'Unable to locate recipient.');
+      return res.redirect('/wallet');
+    }
+    if (!rows || !rows.length) {
+      req.flash('error', 'Recipient account not found.');
+      return res.redirect('/wallet');
+    }
+
+    const recipientId = rows[0].id;
+    const transferRef = `TRANSFER:${senderId}->${recipientId}:${Date.now()}`;
+    db.beginTransaction((txErr) => {
+      if (txErr) {
+        console.error(txErr);
+        req.flash('error', 'Transfer failed to start.');
+        return res.redirect('/wallet');
+      }
+
+      const rollback = (err, msg) => db.rollback(() => {
+        if (err) console.error(err);
+        req.flash('error', msg || 'Transfer failed.');
+        return res.redirect('/wallet');
+      });
+
+      const ensureSql = `
+        INSERT INTO wallets (user_id, balance)
+        VALUES (?, 0.00), (?, 0.00)
+        ON DUPLICATE KEY UPDATE user_id = user_id
+      `;
+      db.query(ensureSql, [senderId, recipientId], (ensureErr) => {
+        if (ensureErr) return rollback(ensureErr, 'Failed to prepare wallets.');
+
+        const lockSql = `
+          SELECT user_id, balance
+          FROM wallets
+          WHERE user_id IN (?, ?)
+          FOR UPDATE
+        `;
+        db.query(lockSql, [senderId, recipientId], (lockErr, walletRows) => {
+          if (lockErr) return rollback(lockErr, 'Failed to lock wallets.');
+          const senderWallet = (walletRows || []).find(r => Number(r.user_id) === Number(senderId));
+          if (!senderWallet) return rollback(null, 'Sender wallet not found.');
+          if (Number(senderWallet.balance || 0) < amount) {
+            return rollback(null, 'Insufficient wallet balance.');
+          }
+
+          const debitSql = 'UPDATE wallets SET balance = balance - ? WHERE user_id = ?';
+          db.query(debitSql, [amount, senderId], (debitErr) => {
+            if (debitErr) return rollback(debitErr, 'Failed to debit sender wallet.');
+            const creditSql = 'UPDATE wallets SET balance = balance + ? WHERE user_id = ?';
+            db.query(creditSql, [amount, recipientId], (creditErr) => {
+              if (creditErr) return rollback(creditErr, 'Failed to credit recipient wallet.');
+
+              const insertTxnSql = `
+                INSERT INTO wallet_transactions (user_id, type, amount, reference)
+                VALUES (?, 'PAYMENT', ?, ?), (?, 'REFUND', ?, ?)
+              `;
+              db.query(
+                insertTxnSql,
+                [senderId, -amount, `${transferRef}:OUT`, recipientId, amount, `${transferRef}:IN`],
+                (txnErr) => {
+                  if (txnErr) return rollback(txnErr, 'Failed to record transfer.');
+                  db.commit((commitErr) => {
+                    if (commitErr) return rollback(commitErr, 'Failed to finalize transfer.');
+                    if (amount >= AML_ALERT_THRESHOLD) {
+                      req.flash('success', `Transfer completed. Compliance review flag created for $${amount.toFixed(2)}.`);
+                    } else {
+                      req.flash('success', `Transferred $${amount.toFixed(2)} successfully.`);
+                    }
+                    return res.redirect('/wallet');
+                  });
+                }
+              );
+            });
+          });
+        });
+      });
+    });
   });
 };

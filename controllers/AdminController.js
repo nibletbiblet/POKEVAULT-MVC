@@ -21,6 +21,7 @@ const {
   enumerateWeeks,
   enumerateMonths
 } = require('../services/dashboardMetrics');
+const { buildWorkbookBuffer } = require('../services/xlsxBuilder');
 
 const ALLOWED_ROLES = ['admin', 'storekeeper', 'user'];
 const COMPLIANCE_HIGH_VALUE_THRESHOLD = 500;
@@ -58,6 +59,295 @@ const toDateRange = (dateStr) => {
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
   return { start, end };
+};
+
+const buildDashboardTrendExport = async (rangeKeyInput) => {
+  const rangeKey = normalizeRangeKey(rangeKeyInput);
+  const range = getRangeWindow(rangeKey, new Date());
+  let rangeStart = range.rangeStart;
+  let rangeEnd = range.rangeEnd;
+  let days = range.days;
+
+  if (rangeKey === 'ALL') {
+    const minDateRows = await runQueryWithFallbacks([
+      {
+        sql: `
+          SELECT MIN(d) AS minDate
+          FROM (
+            SELECT MIN(createdAt) AS d FROM transactions WHERE paymentStatus = 'COMPLETED'
+            UNION ALL
+            SELECT MIN(createdAt) AS d FROM transactions WHERE paymentStatus = 'COMPLETED' AND paymentMethod = 'REFUND'
+          ) x
+        `
+      },
+      {
+        sql: `
+          SELECT MIN(d) AS minDate
+          FROM (
+            SELECT MIN(createdAt) AS d FROM orders
+            UNION ALL
+            SELECT MIN(created_at) AS d FROM refund_requests
+          ) x
+        `
+      },
+      {
+        sql: `
+          SELECT MIN(d) AS minDate
+          FROM (
+            SELECT MIN(createdAt) AS d FROM orders
+          ) x
+        `
+      }
+    ]).then(r => r.rows);
+    const minDate = minDateRows[0]?.minDate ? new Date(minDateRows[0].minDate) : null;
+    rangeStart = minDate ? new Date(minDate) : new Date(rangeEnd);
+    rangeStart.setHours(0, 0, 0, 0);
+    days = enumerateDays(rangeStart, rangeEnd);
+  }
+
+  const buildRangeParams = (start, end) => (start && end ? [start, end] : []);
+  const rangeParams = buildRangeParams(rangeStart, rangeEnd);
+  const prevParams = buildRangeParams(range.prevStart, range.prevEnd);
+
+  const groupUnit = rangeKey === 'YTD' ? 'WEEK' : rangeKey === 'ALL' ? 'MONTH' : 'DAY';
+  let labels = days;
+  let prevLabels = range.prevDays;
+  if (groupUnit === 'WEEK') {
+    labels = enumerateWeeks(rangeStart, rangeEnd);
+    prevLabels = range.prevStart && range.prevEnd ? enumerateWeeks(range.prevStart, range.prevEnd) : [];
+  } else if (groupUnit === 'MONTH') {
+    labels = enumerateMonths(rangeStart, rangeEnd);
+    prevLabels = range.prevStart && range.prevEnd ? enumerateMonths(range.prevStart, range.prevEnd) : [];
+  }
+
+  const bucketExpr = (col) => {
+    if (groupUnit === 'WEEK') return `DATE_FORMAT(${col}, '%x-W%v')`;
+    if (groupUnit === 'MONTH') return `DATE_FORMAT(${col}, '%Y-%m')`;
+    return `DATE(${col})`;
+  };
+
+  const [
+    grossByDayRows,
+    refundByDayRows,
+    ordersByDayRows
+  ] = await Promise.all([
+    runQueryWithFallbacks([
+      {
+        sql: `
+          SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(amount),0) AS value
+          FROM transactions
+          WHERE paymentStatus = 'COMPLETED' AND paymentMethod <> 'REFUND'
+            AND createdAt >= ? AND createdAt < ?
+          GROUP BY bucket
+          ORDER BY bucket ASC
+        `,
+        params: rangeParams
+      },
+      {
+        sql: `
+          SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(total),0) AS value
+          FROM orders
+          WHERE status IN ('paid','completed','COMPLETED')
+            AND createdAt >= ? AND createdAt < ?
+          GROUP BY bucket
+          ORDER BY bucket ASC
+        `,
+        params: rangeParams
+      },
+      {
+        sql: `
+          SELECT ${bucketExpr('created_at')} AS bucket, COALESCE(SUM(total),0) AS value
+          FROM orders
+          WHERE status IN ('paid','completed','COMPLETED')
+            AND created_at >= ? AND created_at < ?
+          GROUP BY bucket
+          ORDER BY bucket ASC
+        `,
+        params: rangeParams
+      }
+    ]).then(r => r.rows),
+    runQueryWithFallbacks([
+      {
+        sql: `
+          SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(amount),0) AS value
+          FROM transactions
+          WHERE paymentStatus = 'COMPLETED' AND paymentMethod = 'REFUND'
+            AND createdAt >= ? AND createdAt < ?
+          GROUP BY bucket
+          ORDER BY bucket ASC
+        `,
+        params: rangeParams
+      },
+      {
+        sql: `
+          SELECT ${bucketExpr('r.created_at')} AS bucket, COALESCE(SUM(o.total),0) AS value
+          FROM refund_requests r
+          JOIN orders o ON o.id = r.order_id
+          WHERE r.status = 'APPROVED'
+            AND r.created_at >= ? AND r.created_at < ?
+          GROUP BY bucket
+          ORDER BY bucket ASC
+        `,
+        params: rangeParams
+      }
+    ]).then(r => r.rows),
+    runQueryWithFallbacks([
+      {
+        sql: `
+          SELECT ${bucketExpr('createdAt')} AS bucket, COUNT(*) AS value
+          FROM orders
+          WHERE status IN ('paid','completed','COMPLETED')
+            AND createdAt >= ? AND createdAt < ?
+          GROUP BY bucket
+          ORDER BY bucket ASC
+        `,
+        params: rangeParams
+      },
+      {
+        sql: `
+          SELECT ${bucketExpr('created_at')} AS bucket, COUNT(*) AS value
+          FROM orders
+          WHERE status IN ('paid','completed','COMPLETED')
+            AND created_at >= ? AND created_at < ?
+          GROUP BY bucket
+          ORDER BY bucket ASC
+        `,
+        params: rangeParams
+      }
+    ]).then(r => r.rows)
+  ]);
+
+  const grossMap = buildValueMap(grossByDayRows, 'value');
+  const refundMap = buildValueMap(refundByDayRows, 'value');
+  const ordersMap = buildValueMap(ordersByDayRows, 'value');
+
+  const grossSeries = fillSeries(labels, grossMap, 0);
+  const refundSeries = fillSeries(labels, refundMap, 0);
+  const netSeries = grossSeries.map((v, idx) => v - refundSeries[idx]);
+  const ordersSeries = fillSeries(labels, ordersMap, 0);
+
+  let prevNetSeries = [];
+  let prevRefundSeries = [];
+  let prevOrdersSeries = [];
+
+  if (range.prevStart && range.prevEnd) {
+    const [
+      grossPrevByDayRows,
+      refundPrevByDayRows,
+      ordersPrevByDayRows
+    ] = await Promise.all([
+      runQueryWithFallbacks([
+        {
+          sql: `
+            SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(amount),0) AS value
+            FROM transactions
+            WHERE paymentStatus = 'COMPLETED' AND paymentMethod <> 'REFUND'
+              AND createdAt >= ? AND createdAt < ?
+            GROUP BY bucket
+            ORDER BY bucket ASC
+          `,
+          params: prevParams
+        },
+        {
+          sql: `
+            SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(total),0) AS value
+            FROM orders
+            WHERE status IN ('paid','completed','COMPLETED')
+              AND createdAt >= ? AND createdAt < ?
+            GROUP BY bucket
+            ORDER BY bucket ASC
+          `,
+          params: prevParams
+        },
+        {
+          sql: `
+            SELECT ${bucketExpr('created_at')} AS bucket, COALESCE(SUM(total),0) AS value
+            FROM orders
+            WHERE status IN ('paid','completed','COMPLETED')
+              AND created_at >= ? AND created_at < ?
+            GROUP BY bucket
+            ORDER BY bucket ASC
+          `,
+          params: prevParams
+        }
+      ]).then(r => r.rows),
+      runQueryWithFallbacks([
+        {
+          sql: `
+            SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(amount),0) AS value
+            FROM transactions
+            WHERE paymentStatus = 'COMPLETED' AND paymentMethod = 'REFUND'
+              AND createdAt >= ? AND createdAt < ?
+            GROUP BY bucket
+            ORDER BY bucket ASC
+          `,
+          params: prevParams
+        },
+        {
+          sql: `
+            SELECT ${bucketExpr('r.created_at')} AS bucket, COALESCE(SUM(o.total),0) AS value
+            FROM refund_requests r
+            JOIN orders o ON o.id = r.order_id
+            WHERE r.status = 'APPROVED'
+              AND r.created_at >= ? AND r.created_at < ?
+            GROUP BY bucket
+            ORDER BY bucket ASC
+          `,
+          params: prevParams
+        }
+      ]).then(r => r.rows),
+      runQueryWithFallbacks([
+        {
+          sql: `
+            SELECT ${bucketExpr('createdAt')} AS bucket, COUNT(*) AS value
+            FROM orders
+            WHERE status IN ('paid','completed','COMPLETED')
+              AND createdAt >= ? AND createdAt < ?
+            GROUP BY bucket
+            ORDER BY bucket ASC
+          `,
+          params: prevParams
+        },
+        {
+          sql: `
+            SELECT ${bucketExpr('created_at')} AS bucket, COUNT(*) AS value
+            FROM orders
+            WHERE status IN ('paid','completed','COMPLETED')
+              AND created_at >= ? AND created_at < ?
+            GROUP BY bucket
+            ORDER BY bucket ASC
+          `,
+          params: prevParams
+        }
+      ]).then(r => r.rows)
+    ]);
+
+    const grossPrevMap = buildValueMap(grossPrevByDayRows, 'value');
+    const refundPrevMap = buildValueMap(refundPrevByDayRows, 'value');
+    const ordersPrevMap = buildValueMap(ordersPrevByDayRows, 'value');
+    const grossPrevSeries = fillSeries(prevLabels, grossPrevMap, 0);
+    prevRefundSeries = fillSeries(prevLabels, refundPrevMap, 0);
+    prevNetSeries = grossPrevSeries.map((v, idx) => v - prevRefundSeries[idx]);
+    prevOrdersSeries = fillSeries(prevLabels, ordersPrevMap, 0);
+  }
+
+  const alignSeries = (series, targetLength) => {
+    const out = [];
+    for (let i = 0; i < targetLength; i += 1) {
+      out.push(series && series[i] !== undefined ? series[i] : null);
+    }
+    return out;
+  };
+
+  return {
+    labels,
+    netSeries,
+    ordersSeries,
+    refundSeries,
+    prevNetSeries: alignSeries(prevNetSeries, labels.length),
+    prevOrdersSeries: alignSeries(prevOrdersSeries, labels.length),
+    prevRefundSeries: alignSeries(prevRefundSeries, labels.length)
+  };
 };
 
 const AdminController = {
@@ -1705,286 +1995,14 @@ const AdminController = {
 
   async dashboardCsv(req, res) {
     try {
-      const rangeKey = normalizeRangeKey(req.query.range);
-      const range = getRangeWindow(rangeKey, new Date());
-      let rangeStart = range.rangeStart;
-      let rangeEnd = range.rangeEnd;
-      let days = range.days;
-
-      if (rangeKey === 'ALL') {
-        const minDateRows = await runQueryWithFallbacks([
-          {
-            sql: `
-              SELECT MIN(d) AS minDate
-              FROM (
-                SELECT MIN(createdAt) AS d FROM transactions WHERE paymentStatus = 'COMPLETED'
-                UNION ALL
-                SELECT MIN(createdAt) AS d FROM transactions WHERE paymentStatus = 'COMPLETED' AND paymentMethod = 'REFUND'
-              ) x
-            `
-          },
-          {
-            sql: `
-              SELECT MIN(d) AS minDate
-              FROM (
-                SELECT MIN(createdAt) AS d FROM orders
-                UNION ALL
-                SELECT MIN(created_at) AS d FROM refund_requests
-              ) x
-            `
-          },
-          {
-            sql: `
-              SELECT MIN(d) AS minDate
-              FROM (
-                SELECT MIN(createdAt) AS d FROM orders
-              ) x
-            `
-          }
-        ]).then(r => r.rows);
-        const minDate = minDateRows[0]?.minDate ? new Date(minDateRows[0].minDate) : null;
-        rangeStart = minDate ? new Date(minDate) : new Date(rangeEnd);
-        rangeStart.setHours(0, 0, 0, 0);
-        days = enumerateDays(rangeStart, rangeEnd);
-      }
-
-      const buildRangeParams = (start, end) => (start && end ? [start, end] : []);
-      const rangeParams = buildRangeParams(rangeStart, rangeEnd);
-      const prevParams = buildRangeParams(range.prevStart, range.prevEnd);
-
-      const groupUnit = rangeKey === 'YTD' ? 'WEEK' : rangeKey === 'ALL' ? 'MONTH' : 'DAY';
-      let labels = days;
-      let prevLabels = range.prevDays;
-      if (groupUnit === 'WEEK') {
-        labels = enumerateWeeks(rangeStart, rangeEnd);
-        prevLabels = range.prevStart && range.prevEnd ? enumerateWeeks(range.prevStart, range.prevEnd) : [];
-      } else if (groupUnit === 'MONTH') {
-        labels = enumerateMonths(rangeStart, rangeEnd);
-        prevLabels = range.prevStart && range.prevEnd ? enumerateMonths(range.prevStart, range.prevEnd) : [];
-      }
-
-      const bucketExpr = (col) => {
-        if (groupUnit === 'WEEK') return `DATE_FORMAT(${col}, '%x-W%v')`;
-        if (groupUnit === 'MONTH') return `DATE_FORMAT(${col}, '%Y-%m')`;
-        return `DATE(${col})`;
-      };
-
-      const [
-        grossByDayRows,
-        refundByDayRows,
-        ordersByDayRows
-      ] = await Promise.all([
-        runQueryWithFallbacks([
-          {
-            sql: `
-              SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(amount),0) AS value
-              FROM transactions
-              WHERE paymentStatus = 'COMPLETED' AND paymentMethod <> 'REFUND'
-                AND createdAt >= ? AND createdAt < ?
-              GROUP BY bucket
-              ORDER BY bucket ASC
-            `,
-            params: rangeParams
-          },
-          {
-            sql: `
-              SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(total),0) AS value
-              FROM orders
-              WHERE status IN ('paid','completed','COMPLETED')
-                AND createdAt >= ? AND createdAt < ?
-              GROUP BY bucket
-              ORDER BY bucket ASC
-            `,
-            params: rangeParams
-          },
-          {
-            sql: `
-              SELECT ${bucketExpr('created_at')} AS bucket, COALESCE(SUM(total),0) AS value
-              FROM orders
-              WHERE status IN ('paid','completed','COMPLETED')
-                AND created_at >= ? AND created_at < ?
-              GROUP BY bucket
-              ORDER BY bucket ASC
-            `,
-            params: rangeParams
-          }
-        ]).then(r => r.rows),
-        runQueryWithFallbacks([
-          {
-            sql: `
-              SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(amount),0) AS value
-              FROM transactions
-              WHERE paymentStatus = 'COMPLETED' AND paymentMethod = 'REFUND'
-                AND createdAt >= ? AND createdAt < ?
-              GROUP BY bucket
-              ORDER BY bucket ASC
-            `,
-            params: rangeParams
-          },
-          {
-            sql: `
-              SELECT ${bucketExpr('r.created_at')} AS bucket, COALESCE(SUM(o.total),0) AS value
-              FROM refund_requests r
-              JOIN orders o ON o.id = r.order_id
-              WHERE r.status = 'APPROVED'
-                AND r.created_at >= ? AND r.created_at < ?
-              GROUP BY bucket
-              ORDER BY bucket ASC
-            `,
-            params: rangeParams
-          }
-        ]).then(r => r.rows),
-        runQueryWithFallbacks([
-          {
-            sql: `
-              SELECT ${bucketExpr('createdAt')} AS bucket, COUNT(*) AS value
-              FROM orders
-              WHERE status IN ('paid','completed','COMPLETED')
-                AND createdAt >= ? AND createdAt < ?
-              GROUP BY bucket
-              ORDER BY bucket ASC
-            `,
-            params: rangeParams
-          },
-          {
-            sql: `
-              SELECT ${bucketExpr('created_at')} AS bucket, COUNT(*) AS value
-              FROM orders
-              WHERE status IN ('paid','completed','COMPLETED')
-                AND created_at >= ? AND created_at < ?
-              GROUP BY bucket
-              ORDER BY bucket ASC
-            `,
-            params: rangeParams
-          }
-        ]).then(r => r.rows)
-      ]);
-
-      const grossMap = buildValueMap(grossByDayRows, 'value');
-      const refundMap = buildValueMap(refundByDayRows, 'value');
-      const ordersMap = buildValueMap(ordersByDayRows, 'value');
-
-      const grossSeries = fillSeries(labels, grossMap, 0);
-      const refundSeries = fillSeries(labels, refundMap, 0);
-      const netSeries = grossSeries.map((v, idx) => v - refundSeries[idx]);
-      const ordersSeries = fillSeries(labels, ordersMap, 0);
-
-      let prevNetSeries = [];
-      let prevRefundSeries = [];
-      let prevOrdersSeries = [];
-
-      if (range.prevStart && range.prevEnd) {
-        const [
-          grossPrevByDayRows,
-          refundPrevByDayRows,
-          ordersPrevByDayRows
-        ] = await Promise.all([
-          runQueryWithFallbacks([
-            {
-              sql: `
-                SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(amount),0) AS value
-                FROM transactions
-                WHERE paymentStatus = 'COMPLETED' AND paymentMethod <> 'REFUND'
-                  AND createdAt >= ? AND createdAt < ?
-                GROUP BY bucket
-                ORDER BY bucket ASC
-              `,
-              params: prevParams
-            },
-            {
-              sql: `
-                SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(total),0) AS value
-                FROM orders
-                WHERE status IN ('paid','completed','COMPLETED')
-                  AND createdAt >= ? AND createdAt < ?
-                GROUP BY bucket
-                ORDER BY bucket ASC
-              `,
-              params: prevParams
-            },
-            {
-              sql: `
-                SELECT ${bucketExpr('created_at')} AS bucket, COALESCE(SUM(total),0) AS value
-                FROM orders
-                WHERE status IN ('paid','completed','COMPLETED')
-                  AND created_at >= ? AND created_at < ?
-                GROUP BY bucket
-                ORDER BY bucket ASC
-              `,
-              params: prevParams
-            }
-          ]).then(r => r.rows),
-          runQueryWithFallbacks([
-            {
-              sql: `
-                SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(amount),0) AS value
-                FROM transactions
-                WHERE paymentStatus = 'COMPLETED' AND paymentMethod = 'REFUND'
-                  AND createdAt >= ? AND createdAt < ?
-                GROUP BY bucket
-                ORDER BY bucket ASC
-              `,
-              params: prevParams
-            },
-            {
-              sql: `
-                SELECT ${bucketExpr('r.created_at')} AS bucket, COALESCE(SUM(o.total),0) AS value
-                FROM refund_requests r
-                JOIN orders o ON o.id = r.order_id
-                WHERE r.status = 'APPROVED'
-                  AND r.created_at >= ? AND r.created_at < ?
-                GROUP BY bucket
-                ORDER BY bucket ASC
-              `,
-              params: prevParams
-            }
-          ]).then(r => r.rows),
-          runQueryWithFallbacks([
-            {
-              sql: `
-                SELECT ${bucketExpr('createdAt')} AS bucket, COUNT(*) AS value
-                FROM orders
-                WHERE status IN ('paid','completed','COMPLETED')
-                  AND createdAt >= ? AND createdAt < ?
-                GROUP BY bucket
-                ORDER BY bucket ASC
-              `,
-              params: prevParams
-            },
-            {
-              sql: `
-                SELECT ${bucketExpr('created_at')} AS bucket, COUNT(*) AS value
-                FROM orders
-                WHERE status IN ('paid','completed','COMPLETED')
-                  AND created_at >= ? AND created_at < ?
-                GROUP BY bucket
-                ORDER BY bucket ASC
-              `,
-              params: prevParams
-            }
-          ]).then(r => r.rows)
-        ]);
-
-        const grossPrevMap = buildValueMap(grossPrevByDayRows, 'value');
-        const refundPrevMap = buildValueMap(refundPrevByDayRows, 'value');
-        const ordersPrevMap = buildValueMap(ordersPrevByDayRows, 'value');
-        const grossPrevSeries = fillSeries(prevLabels, grossPrevMap, 0);
-        prevRefundSeries = fillSeries(prevLabels, refundPrevMap, 0);
-        prevNetSeries = grossPrevSeries.map((v, idx) => v - prevRefundSeries[idx]);
-        prevOrdersSeries = fillSeries(prevLabels, ordersPrevMap, 0);
-      }
-
-      const alignSeries = (series, targetLength) => {
-        const out = [];
-        for (let i = 0; i < targetLength; i += 1) {
-          out.push(series && series[i] !== undefined ? series[i] : null);
-        }
-        return out;
-      };
-
-      const prevNetAligned = alignSeries(prevNetSeries, labels.length);
-      const prevOrdersAligned = alignSeries(prevOrdersSeries, labels.length);
-      const prevRefundAligned = alignSeries(prevRefundSeries, labels.length);
+      const exportData = await buildDashboardTrendExport(req.query.range);
+      const labels = exportData.labels || [];
+      const netSeries = exportData.netSeries || [];
+      const ordersSeries = exportData.ordersSeries || [];
+      const refundSeries = exportData.refundSeries || [];
+      const prevNetAligned = exportData.prevNetSeries || [];
+      const prevOrdersAligned = exportData.prevOrdersSeries || [];
+      const prevRefundAligned = exportData.prevRefundSeries || [];
 
       const escapeCsv = (value) => {
         if (value === null || value === undefined) return '';
@@ -2016,6 +2034,44 @@ const AdminController = {
       console.error('Error exporting dashboard CSV:', err);
       return res.status(500).send('Database error');
     }
+  },
+
+  async dashboardXlsx(req, res) {
+    try {
+      const exportData = await buildDashboardTrendExport(req.query.range);
+      const labels = exportData.labels || [];
+      const netSeries = exportData.netSeries || [];
+      const ordersSeries = exportData.ordersSeries || [];
+      const refundSeries = exportData.refundSeries || [];
+      const prevNetSeries = exportData.prevNetSeries || [];
+      const prevOrdersSeries = exportData.prevOrdersSeries || [];
+      const prevRefundSeries = exportData.prevRefundSeries || [];
+
+      const rows = [
+        ['bucket', 'net_sales', 'orders', 'refunds', 'prev_net_sales', 'prev_orders', 'prev_refunds'],
+        ...labels.map((label, idx) => [
+          label,
+          netSeries[idx] ?? '',
+          ordersSeries[idx] ?? '',
+          refundSeries[idx] ?? '',
+          prevNetSeries[idx] ?? '',
+          prevOrdersSeries[idx] ?? '',
+          prevRefundSeries[idx] ?? ''
+        ])
+      ];
+
+      const buffer = buildWorkbookBuffer(rows);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="dashboard-report.xlsx"');
+      return res.send(buffer);
+    } catch (err) {
+      console.error('Error exporting dashboard XLSX:', err);
+      return res.status(500).send('Database error');
+    }
+  },
+
+  dashboardExcel(req, res) {
+    return this.dashboardXlsx(req, res);
   },
 
   async trades(req, res) {

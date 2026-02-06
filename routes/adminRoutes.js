@@ -21,6 +21,8 @@ router.get('/admin/activity', requireAuth, requireRole('admin'), AdminController
 router.get('/admin/trades', requireAuth, requireRole('admin'), AdminController.trades);
 router.get('/admin/dashboard', requireAuth, requireRole('admin'), AdminController.dashboard);
 router.get('/admin/dashboard.csv', requireAuth, requireRole('admin'), requireAdminKey, AdminController.dashboardCsv);
+router.get('/admin/dashboard.xlsx', requireAuth, requireRole('admin'), requireAdminKey, AdminController.dashboardXlsx);
+router.get('/admin/dashboard.xls', requireAuth, requireRole('admin'), requireAdminKey, AdminController.dashboardExcel);
 router.get('/admin/reports/day', requireAuth, requireRole('admin'), AdminController.dailyReport);
 router.get('/admin/reports/daily.csv', requireAuth, requireRole('admin'), requireAdminKey, AdminController.dailyReportCsv);
 router.get('/admin/orders-status', requireAuth, requireRole('admin'), AdminController.orderStatus);

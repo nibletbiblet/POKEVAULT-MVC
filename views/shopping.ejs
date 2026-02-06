@@ -19,7 +19,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="/theme.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <title>Supermarket App - Shopping</title>
+  <title>PokeVault - Marketplace</title>
   <style>
     /* Keep layout consistent with inventory.ejs and index.ejs */
     body {
@@ -445,6 +445,13 @@ background-size: cover;
   <a class="visually-hidden-focusable" href="#main-content">Skip to main content</a>
 
   <main id="main-content" class="container flex-grow-1 py-4 page-shell" role="main">
+    <div class="alert alert-info border-0 shadow-sm">
+      <div class="fw-semibold mb-1">Marketplace Flow</div>
+      <div class="small mb-0">
+        Browse, search, and filter listings here. Only admin-approved and authenticity-verified listings are published.
+        KYC is enforced automatically for high-value checkout.
+      </div>
+    </div>
 
     <% const topThree = Array.isArray(bestSellers) ? bestSellers : []; %>
     <% if (topThree.length) { %>
@@ -474,7 +481,7 @@ background-size: cover;
                         <% if (prod.rarity) { %>
                           <span class="rarity-pill rarity-<%= rarityClass %>"><%= prod.rarity %></span>
                         <% } %>
-                        <span class="rating-pill">? <%= Number(stat.avg || 0).toFixed(1) %> (<%= stat.count || 0 %>)</span>
+                        <span class="rating-pill">★ <%= Number(stat.avg || 0).toFixed(1) %> (<%= stat.count || 0 %>)</span>
                       </div>
                       <div class="product-price">
                         <% if (hasDiscount) { %>

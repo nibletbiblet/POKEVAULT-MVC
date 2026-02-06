@@ -17,6 +17,21 @@
   -->*/
 
 const Product = {
+	getColumns(callback) {
+		const db = require('../db');
+		const sql = `
+			SELECT COLUMN_NAME
+			FROM INFORMATION_SCHEMA.COLUMNS
+			WHERE TABLE_SCHEMA = DATABASE()
+			  AND TABLE_NAME = 'products'
+		`;
+		db.query(sql, (err, rows) => {
+			if (err) return callback(err);
+			const cols = new Set((rows || []).map(r => String(r.COLUMN_NAME || '').toLowerCase()));
+			return callback(null, cols);
+		});
+	},
+
 	// Get all products
 	getAll(callback) {
 		const db = require('../db');
@@ -41,32 +56,68 @@ const Product = {
 	// Add a new product. `product` should be an object { productName, quantity, price, image }
 	add(product, callback) {
 		const db = require('../db');
-		const sql = 'INSERT INTO products (productName, quantity, price, discountPercent, image, rarity) VALUES (?, ?, ?, ?, ?, ?)';
-		const params = [
-			product.productName,
-			product.quantity,
-			product.price,
-			product.discountPercent,
-			product.image || null,
-			product.rarity || null
-		];
-		db.query(sql, params, (err, result) => callback(err, result));
+		this.getColumns((colErr, cols) => {
+			if (colErr) return callback(colErr);
+			const columns = ['productName', 'quantity', 'price', 'discountPercent', 'image', 'rarity'];
+			const params = [
+				product.productName,
+				product.quantity,
+				product.price,
+				product.discountPercent,
+				product.image || null,
+				product.rarity || null
+			];
+			if (cols.has('sellerid')) {
+				columns.push('sellerId');
+				params.push(product.sellerId || null);
+			}
+			if (cols.has('listingstatus')) {
+				columns.push('listingStatus');
+				params.push(product.listingStatus || 'PENDING');
+			}
+			if (cols.has('authenticitystatus')) {
+				columns.push('authenticityStatus');
+				params.push(product.authenticityStatus || 'PENDING');
+			}
+			const placeholders = columns.map(() => '?').join(', ');
+			const sql = `INSERT INTO products (${columns.join(', ')}) VALUES (${placeholders})`;
+			db.query(sql, params, (err, result) => callback(err, result));
+		});
 	},
 
 	// Update an existing product by ID. `product` same shape as add
 	update(id, product, callback) {
 		const db = require('../db');
-		const sql = 'UPDATE products SET productName = ?, quantity = ?, price = ?, discountPercent = ?, image = ?, rarity = ? WHERE id = ?';
-		const params = [
-			product.productName,
-			product.quantity,
-			product.price,
-			product.discountPercent,
-			product.image || null,
-			product.rarity || null,
-			id
-		];
-		db.query(sql, params, (err, result) => callback(err, result));
+		this.getColumns((colErr, cols) => {
+			if (colErr) return callback(colErr);
+			const setParts = [
+				'productName = ?',
+				'quantity = ?',
+				'price = ?',
+				'discountPercent = ?',
+				'image = ?',
+				'rarity = ?'
+			];
+			const params = [
+				product.productName,
+				product.quantity,
+				product.price,
+				product.discountPercent,
+				product.image || null,
+				product.rarity || null
+			];
+			if (cols.has('listingstatus') && product.listingStatus) {
+				setParts.push('listingStatus = ?');
+				params.push(product.listingStatus);
+			}
+			if (cols.has('authenticitystatus') && product.authenticityStatus) {
+				setParts.push('authenticityStatus = ?');
+				params.push(product.authenticityStatus);
+			}
+			params.push(id);
+			const sql = `UPDATE products SET ${setParts.join(', ')} WHERE id = ?`;
+			db.query(sql, params, (err, result) => callback(err, result));
+		});
 	},
 
 	// Delete a product by ID (hard delete to support schemas without is_active)
