@@ -21,6 +21,7 @@ const {
   BNPL_SANDBOX_CARD_EXPIRY
 } = require('../config/constants');
 const { applyCoinsToOrder, creditCoins } = require('../services/coinsHelper');
+const { logAdminActivity } = require('../services/adminActivity');
 
 const sha256 = (plain) => crypto.createHash('sha256').update(plain).digest('hex');
 const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 10);
@@ -437,7 +438,10 @@ exports.adminRefundBnpl = (req, res) => {
             status: 'REFUNDED',
             reference: `BNPL_REFUND_${orderId}`,
             amount: refundAmount
-          }, () => res.redirect('/admin/bnpl/refunds'));
+          }, () => {
+            logAdminActivity(req, 'BNPL_REFUND', 'order', orderId, { amount: refundAmount });
+            res.redirect('/admin/bnpl/refunds');
+          });
         });
       });
     });
@@ -459,6 +463,7 @@ exports.adminApproveRefundRequest = (req, res) => {
       console.error(err);
       return res.status(500).send('Failed to approve refund request');
     }
+    logAdminActivity(req, 'BNPL_REFUND_APPROVE', 'bnpl_refund', requestId, {});
     res.redirect('/admin/bnpl/refunds');
   });
 };
@@ -471,6 +476,7 @@ exports.adminRejectRefundRequest = (req, res) => {
       console.error(err);
       return res.status(500).send('Failed to reject refund request');
     }
+    logAdminActivity(req, 'BNPL_REFUND_REJECT', 'bnpl_refund', requestId, {});
     res.redirect('/admin/bnpl/refunds');
   });
 };

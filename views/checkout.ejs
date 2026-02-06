@@ -488,6 +488,10 @@ background-size: cover;
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.url) {
+              if (data && data.redirectUrl) {
+                window.location.href = data.redirectUrl;
+                return;
+              }
               throw new Error(data.error || 'Unable to start Stripe checkout.');
             }
             window.location.href = data.url;
@@ -607,8 +611,15 @@ background-size: cover;
               amount: "<%= payableTotal.toFixed(2) %>"
             })
           })
-            .then((res) => res.json())
-            .then((data) => {
+            .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+              if (!ok) {
+                if (data && data.redirectUrl) {
+                  window.location.href = data.redirectUrl;
+                  return '';
+                }
+                throw new Error(data.error || 'Unable to start PayPal checkout.');
+              }
               if (data.error) throw new Error(data.error);
               return data.id;
             });

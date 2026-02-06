@@ -10,6 +10,7 @@ const db = require('../db');
 const bcrypt = require('bcrypt');
 const Order = require('../models/Order');
 const UserBanHistory = require('../models/UserBanHistory');
+const { logAdminActivity } = require('../services/adminActivity');
 const {
   normalizeRangeKey,
   getRangeWindow,
@@ -22,6 +23,10 @@ const {
 } = require('../services/dashboardMetrics');
 
 const ALLOWED_ROLES = ['admin', 'storekeeper', 'user'];
+const COMPLIANCE_HIGH_VALUE_THRESHOLD = 500;
+const COMPLIANCE_REFUND_RATE_THRESHOLD = 0.5;
+const COMPLIANCE_VELOCITY_COUNT = 3;
+const COMPLIANCE_VELOCITY_MINUTES = 10;
 
 // Promise wrapper to run SQL with async/await
 const runQuery = (sql, params = []) => new Promise((resolve, reject) => {
@@ -287,59 +292,248 @@ const AdminController = {
 
       Order.updateStatus(orderId, 'TO_RECEIVE', (err2) => {
         if (err2) return res.status(500).send('Failed to update order status');
+        logAdminActivity(req, 'ORDER_STATUS_UPDATE', 'order', orderId, { status: 'TO_RECEIVE' });
         req.flash('success', `Order #${orderId} marked as shipped.`);
         return res.redirect('/admin/orders-status');
       });
     });
   },
-  listUsers(req, res) {
-    const sql = 'SELECT id, username, email, role, contact, address, isBanned FROM users ORDER BY id DESC';
-    db.query(sql, (err, users) => {
-      if (err) {
-        console.error('Error fetching users:', err);
-        return res.status(500).send('Database error');
-      }
-      const userIds = (users || []).map(u => u.id);
-      if (!userIds.length) {
-        return res.render('adminUsers', { users, user: req.session.user });
-      }
+  async listUsers(req, res) {
+    const kycFilter = req.query && typeof req.query.kyc === 'string' ? req.query.kyc.trim() : '';
+    const refundRateMin = req.query && req.query.refundRate ? Number(req.query.refundRate) : null;
+    const highValueNoKyc = req.query && req.query.highValueNoKyc === '1';
+    const velocityFlag = req.query && req.query.velocity === '1';
 
-      const placeholders = userIds.map(() => '?').join(', ');
-      const statsSql = `
-        SELECT
-          u.id AS userId,
-          COUNT(DISTINCT o.id) AS totalOrders,
-          COUNT(DISTINCT rr.order_id) AS refundOrders
-        FROM users u
-        LEFT JOIN orders o ON o.userId = u.id
-        LEFT JOIN refund_requests rr ON rr.user_id = u.id
-        WHERE u.id IN (${placeholders})
-        GROUP BY u.id
-      `;
-      db.query(statsSql, userIds, (statsErr, rows) => {
-        if (statsErr) {
-          console.error('Error computing refund stats:', statsErr);
-          return res.render('adminUsers', { users, user: req.session.user });
+    let users = [];
+    let hasKycStatus = false;
+    try {
+      const baseResult = await runQueryWithFallbacks([
+        { sql: 'SELECT id, username, email, role, contact, address, isBanned, kycStatus FROM users WHERE (isDeleted = 0 OR isDeleted IS NULL) ORDER BY id DESC' },
+        { sql: 'SELECT id, username, email, role, contact, address, isBanned FROM users WHERE (isDeleted = 0 OR isDeleted IS NULL) ORDER BY id DESC' }
+      ]);
+      users = baseResult.rows || [];
+      hasKycStatus = /kycstatus/i.test(baseResult.sql || '');
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      return res.status(500).send('Database error');
+    }
+
+    const userIds = (users || []).map(u => u.id);
+    if (!userIds.length) {
+      return res.render('adminUsers', { users, user: req.session.user });
+    }
+
+    const placeholders = userIds.map(() => '?').join(', ');
+    let statsRows = [];
+    try {
+      statsRows = await runQueryWithFallbacks([
+        {
+          sql: `
+            SELECT
+              u.id AS userId,
+              COUNT(DISTINCT o.id) AS totalOrders,
+              COUNT(DISTINCT rr.order_id) AS refundOrders
+            FROM users u
+            LEFT JOIN orders o ON o.userId = u.id
+            LEFT JOIN refund_requests rr ON rr.user_id = u.id AND rr.status = 'APPROVED'
+            WHERE u.id IN (${placeholders})
+              AND (u.isDeleted = 0 OR u.isDeleted IS NULL)
+              AND (o.status IN ('paid','completed','COMPLETED') OR o.id IS NULL)
+            GROUP BY u.id
+          `,
+          params: userIds
+        },
+        {
+          sql: `
+            SELECT
+              u.id AS userId,
+              COUNT(DISTINCT o.id) AS totalOrders,
+              COUNT(DISTINCT rr.order_id) AS refundOrders
+            FROM users u
+            LEFT JOIN orders o ON o.user_id = u.id
+            LEFT JOIN refund_requests rr ON rr.user_id = u.id AND rr.status = 'APPROVED'
+            WHERE u.id IN (${placeholders})
+              AND (u.isDeleted = 0 OR u.isDeleted IS NULL)
+              AND (o.status IN ('paid','completed','COMPLETED') OR o.id IS NULL)
+            GROUP BY u.id
+          `,
+          params: userIds
+        },
+        {
+          sql: `
+            SELECT
+              u.id AS userId,
+              COUNT(DISTINCT o.id) AS totalOrders,
+              COUNT(DISTINCT rr.order_id) AS refundOrders
+            FROM users u
+            LEFT JOIN orders o ON o.userId = u.id
+            LEFT JOIN refund_requests rr ON rr.user_id = u.id
+            WHERE u.id IN (${placeholders})
+              AND (u.isDeleted = 0 OR u.isDeleted IS NULL)
+            GROUP BY u.id
+          `,
+          params: userIds
+        },
+        {
+          sql: `
+            SELECT
+              u.id AS userId,
+              COUNT(DISTINCT o.id) AS totalOrders,
+              COUNT(DISTINCT rr.order_id) AS refundOrders
+            FROM users u
+            LEFT JOIN orders o ON o.user_id = u.id
+            LEFT JOIN refund_requests rr ON rr.user_id = u.id
+            WHERE u.id IN (${placeholders})
+              AND (u.isDeleted = 0 OR u.isDeleted IS NULL)
+            GROUP BY u.id
+          `,
+          params: userIds
+        },
+        {
+          sql: `
+            SELECT
+              u.id AS userId,
+              COUNT(DISTINCT o.id) AS totalOrders,
+              0 AS refundOrders
+            FROM users u
+            LEFT JOIN orders o ON o.userId = u.id
+            WHERE u.id IN (${placeholders})
+              AND (u.isDeleted = 0 OR u.isDeleted IS NULL)
+              AND (o.status IN ('paid','completed','COMPLETED') OR o.id IS NULL)
+            GROUP BY u.id
+          `,
+          params: userIds
+        },
+        {
+          sql: `
+            SELECT
+              u.id AS userId,
+              COUNT(DISTINCT o.id) AS totalOrders,
+              0 AS refundOrders
+            FROM users u
+            LEFT JOIN orders o ON o.user_id = u.id
+            WHERE u.id IN (${placeholders})
+              AND (u.isDeleted = 0 OR u.isDeleted IS NULL)
+              AND (o.status IN ('paid','completed','COMPLETED') OR o.id IS NULL)
+            GROUP BY u.id
+          `,
+          params: userIds
         }
-        const statsByUser = new Map();
-        (rows || []).forEach(r => {
-          const total = Number(r.totalOrders || 0);
-          const refundOrders = Number(r.refundOrders || 0);
-          const refundRate = total > 0 ? refundOrders / total : 0;
-          statsByUser.set(r.userId, { refundRate, total, refundOrders });
-        });
-        const enriched = (users || []).map(u => {
-          const stats = statsByUser.get(u.id) || { refundRate: 0, total: 0, refundOrders: 0 };
-          return {
-            ...u,
-            refundRate: stats.refundRate,
-            refundOrders: stats.refundOrders,
-            totalOrders: stats.total
-          };
-        });
-        return res.render('adminUsers', { users: enriched, user: req.session.user });
-      });
+      ]).then(r => r.rows);
+    } catch (statsErr) {
+      console.error('Error computing refund stats:', statsErr);
+      return res.render('adminUsers', { users, user: req.session.user });
+    }
+
+    const statsByUser = new Map();
+    (statsRows || []).forEach(r => {
+      const total = Number(r.totalOrders || 0);
+      const refundOrders = Number(r.refundOrders || 0);
+      const refundRate = total > 0 ? refundOrders / total : 0;
+      statsByUser.set(r.userId, { refundRate, total, refundOrders });
     });
+    let enriched = (users || []).map(u => {
+      const stats = statsByUser.get(u.id) || { refundRate: 0, total: 0, refundOrders: 0 };
+      return {
+        ...u,
+        refundRate: stats.refundRate,
+        refundOrders: stats.refundOrders,
+        totalOrders: stats.total
+      };
+    });
+
+    if (kycFilter && hasKycStatus) {
+      if (kycFilter === 'incomplete') {
+        const incomplete = new Set(['NOT_STARTED', 'PENDING', 'REJECTED']);
+        enriched = enriched.filter(u => incomplete.has(String(u.kycStatus || '').toUpperCase()));
+      } else if (kycFilter === 'verified') {
+        enriched = enriched.filter(u => String(u.kycStatus || '').toUpperCase() === 'VERIFIED');
+      } else {
+        enriched = enriched.filter(u => String(u.kycStatus || '').toUpperCase() === kycFilter.toUpperCase());
+      }
+    }
+
+    if (Number.isFinite(refundRateMin)) {
+      enriched = enriched.filter(u => Number(u.refundRate || 0) >= refundRateMin);
+    }
+
+    if (highValueNoKyc) {
+      try {
+        const rows = await runQueryWithFallbacks([
+          {
+            sql: `
+              SELECT DISTINCT o.userId AS userId
+              FROM orders o
+              JOIN users u ON u.id = o.userId
+              WHERE o.total >= ?
+                AND (u.isDeleted = 0 OR u.isDeleted IS NULL)
+                AND (u.kycStatus IS NULL OR u.kycStatus <> 'VERIFIED')
+            `,
+            params: [COMPLIANCE_HIGH_VALUE_THRESHOLD]
+          },
+          {
+            sql: `
+              SELECT DISTINCT o.user_id AS userId
+              FROM orders o
+              JOIN users u ON u.id = o.user_id
+              WHERE o.total >= ?
+                AND (u.isDeleted = 0 OR u.isDeleted IS NULL)
+                AND (u.kycStatus IS NULL OR u.kycStatus <> 'VERIFIED')
+            `,
+            params: [COMPLIANCE_HIGH_VALUE_THRESHOLD]
+          }
+        ]).then(r => r.rows);
+        const flagged = new Set((rows || []).map(r => r.userId));
+        enriched = enriched.filter(u => flagged.has(u.id));
+      } catch (err) {
+        console.error('Error filtering high value KYC users:', err);
+      }
+    }
+
+    if (velocityFlag) {
+      try {
+        const rows = await runQueryWithFallbacks([
+          {
+            sql: `
+              SELECT DISTINCT userId FROM (
+                SELECT o1.userId AS userId
+                FROM orders o1
+                JOIN users u ON u.id = o1.userId
+                JOIN orders o2
+                  ON o2.userId = o1.userId
+                 AND o2.createdAt BETWEEN o1.createdAt AND DATE_ADD(o1.createdAt, INTERVAL ? MINUTE)
+                WHERE (u.isDeleted = 0 OR u.isDeleted IS NULL)
+                GROUP BY o1.userId, o1.id
+                HAVING COUNT(o2.id) >= ?
+              ) t
+            `,
+            params: [COMPLIANCE_VELOCITY_MINUTES, COMPLIANCE_VELOCITY_COUNT]
+          },
+          {
+            sql: `
+              SELECT DISTINCT userId FROM (
+                SELECT o1.user_id AS userId
+                FROM orders o1
+                JOIN users u ON u.id = o1.user_id
+                JOIN orders o2
+                  ON o2.user_id = o1.user_id
+                 AND o2.created_at BETWEEN o1.created_at AND DATE_ADD(o1.created_at, INTERVAL ? MINUTE)
+                WHERE (u.isDeleted = 0 OR u.isDeleted IS NULL)
+                GROUP BY o1.user_id, o1.id
+                HAVING COUNT(o2.id) >= ?
+              ) t
+            `,
+            params: [COMPLIANCE_VELOCITY_MINUTES, COMPLIANCE_VELOCITY_COUNT]
+          }
+        ]).then(r => r.rows);
+        const flagged = new Set((rows || []).map(r => r.userId));
+        enriched = enriched.filter(u => flagged.has(u.id));
+      } catch (err) {
+        console.error('Error filtering velocity users:', err);
+      }
+    }
+
+    return res.render('adminUsers', { users: enriched, user: req.session.user });
   },
 
   banUser(req, res) {
@@ -347,7 +541,7 @@ const AdminController = {
     const reasonRaw = typeof req.body.banReason === 'string' ? req.body.banReason.trim() : '';
     const reason = reasonRaw || null;
     const adminId = req.session && req.session.user ? req.session.user.id : null;
-    const guardSql = 'SELECT id, role FROM users WHERE id = ?';
+    const guardSql = 'SELECT id, role FROM users WHERE id = ? AND (isDeleted = 0 OR isDeleted IS NULL)';
     db.query(guardSql, [userId], (guardErr, rows) => {
       if (guardErr) {
         console.error('Error checking user role:', guardErr);
@@ -374,6 +568,7 @@ const AdminController = {
           { userId, action: 'BAN', reason, adminId },
           (histErr) => {
             if (histErr) console.error('Error recording ban history:', histErr);
+            logAdminActivity(req, 'USER_BAN', 'user', userId, { reason });
             req.flash('success', 'User banned.');
             return res.redirect('/admin/users');
           }
@@ -384,7 +579,7 @@ const AdminController = {
 
   unbanUser(req, res) {
     const userId = req.params.id;
-    const guardSql = 'SELECT id, role FROM users WHERE id = ?';
+    const guardSql = 'SELECT id, role FROM users WHERE id = ? AND (isDeleted = 0 OR isDeleted IS NULL)';
     db.query(guardSql, [userId], (guardErr, rows) => {
       if (guardErr) {
         console.error('Error checking user role:', guardErr);
@@ -412,6 +607,7 @@ const AdminController = {
           { userId, action: 'UNBAN', reason: null, adminId },
           (histErr) => {
             if (histErr) console.error('Error recording unban history:', histErr);
+            logAdminActivity(req, 'USER_UNBAN', 'user', userId, {});
             req.flash('success', 'User unbanned.');
             return res.redirect('/admin/users');
           }
@@ -422,7 +618,7 @@ const AdminController = {
 
   userOrders(req, res) {
     const userId = req.params.id;
-    const userSql = 'SELECT id, username, email FROM users WHERE id = ?';
+    const userSql = 'SELECT id, username, email FROM users WHERE id = ? AND (isDeleted = 0 OR isDeleted IS NULL)';
     db.query(userSql, [userId], (err, result) => {
       if (err) {
         console.error('Error fetching user:', err);
@@ -442,7 +638,7 @@ const AdminController = {
 
   suspensionHistory(req, res) {
     const userId = req.params.id;
-    const userSql = 'SELECT id, username, email FROM users WHERE id = ?';
+    const userSql = 'SELECT id, username, email FROM users WHERE id = ? AND (isDeleted = 0 OR isDeleted IS NULL)';
     db.query(userSql, [userId], (err, result) => {
       if (err) {
         console.error('Error fetching user:', err);
@@ -494,7 +690,7 @@ const AdminController = {
 
     let existingUsers = [];
     try {
-      existingUsers = await runQuery('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
+      existingUsers = await runQuery('SELECT id FROM users WHERE email = ? AND (isDeleted = 0 OR isDeleted IS NULL) LIMIT 1', [email]);
     } catch (err) {
       console.error('Error checking existing email:', err);
       req.flash('error', 'Could not create user.');
@@ -517,6 +713,7 @@ const AdminController = {
         req.flash('formData', req.body);
         return res.redirect('/admin/users/add');
       }
+      logAdminActivity(req, 'USER_CREATE', 'user', null, { email, username, role: chosenRole });
       req.flash('success', 'User created successfully.');
       return res.redirect('/admin/users');
     });
@@ -527,7 +724,7 @@ const AdminController = {
     const formData = req.flash('formData')[0];
     const messages = req.flash('error');
     const success = req.flash('success');
-    const sql = 'SELECT id, username, email, role, contact, address FROM users WHERE id = ?';
+    const sql = 'SELECT id, username, email, role, contact, address FROM users WHERE id = ? AND (isDeleted = 0 OR isDeleted IS NULL)';
     db.query(sql, [userId], (err, rows) => {
       if (err) {
         console.error('Error fetching user:', err);
@@ -557,7 +754,7 @@ const AdminController = {
     const chosenRole = ALLOWED_ROLES.includes(role) ? role : 'user';
 
     // Prevent editing other admin accounts
-    const guardSql = 'SELECT id, role FROM users WHERE id = ?';
+    const guardSql = 'SELECT id, role FROM users WHERE id = ? AND (isDeleted = 0 OR isDeleted IS NULL)';
     db.query(guardSql, [userId], async (err, rows) => {
       if (err) {
         console.error('Error checking user role:', err);
@@ -576,7 +773,7 @@ const AdminController = {
         return res.redirect('/admin/users');
       }
       if (target.role === 'admin' && chosenRole !== 'admin') {
-        const adminCountRows = await runQuery('SELECT COUNT(*) AS total FROM users WHERE role = "admin"');
+        const adminCountRows = await runQuery('SELECT COUNT(*) AS total FROM users WHERE role = "admin" AND (isDeleted = 0 OR isDeleted IS NULL)');
         const adminCount = adminCountRows[0]?.total || 0;
         if (adminCount <= 1) {
           req.flash('error', 'Cannot remove the last remaining admin.');
@@ -618,6 +815,7 @@ const AdminController = {
           req.flash('formData', { ...req.body, password: '' });
           return res.redirect(`/admin/users/${userId}/edit`);
         }
+        logAdminActivity(req, 'USER_UPDATE', 'user', userId, { username, email, role: chosenRole });
         req.flash('success', 'User updated successfully.');
         return res.redirect('/admin/users');
       });
@@ -627,7 +825,7 @@ const AdminController = {
 
   deleteUser(req, res) {
     const userId = req.params.id;
-    const fetchSql = 'SELECT id, username, role FROM users WHERE id = ?';
+    const fetchSql = 'SELECT id, username, role FROM users WHERE id = ? AND (isDeleted = 0 OR isDeleted IS NULL)';
     db.query(fetchSql, [userId], async (err, rows) => {
       if (err) {
         console.error('Error checking user for deletion:', err);
@@ -641,7 +839,7 @@ const AdminController = {
 
       const target = rows[0];
       if (target.role === 'admin') {
-        const adminCountRows = await runQuery('SELECT COUNT(*) AS total FROM users WHERE role = "admin"');
+        const adminCountRows = await runQuery('SELECT COUNT(*) AS total FROM users WHERE role = "admin" AND (isDeleted = 0 OR isDeleted IS NULL)');
         const adminCount = adminCountRows[0]?.total || 0;
         if (adminCount <= 1) {
           req.flash('error', 'Cannot remove the last remaining admin.');
@@ -654,10 +852,167 @@ const AdminController = {
         if (err) {
           console.error('Error deleting user:', err);
           req.flash('error', 'Could not delete user.');
+        } else {
+          logAdminActivity(req, 'USER_DELETE', 'user', userId, { username: target.username });
         }
         res.redirect('/admin/users');
       });
     });
+  },
+
+  async adminKyc(req, res) {
+    try {
+      const rows = await runQueryWithFallbacks([
+        {
+          sql: `
+            SELECT id, username, email, kycStatus, kycUpdatedAt
+            FROM users
+            WHERE kycStatus = 'PENDING'
+            ORDER BY kycUpdatedAt DESC
+          `
+        }
+      ]).then(r => r.rows);
+
+      res.render('adminKyc', {
+        user: req.session.user,
+        users: rows || [],
+        messages: req.flash('error'),
+        success: req.flash('success')
+      });
+    } catch (err) {
+      if (err && (err.code === 'ER_NO_SUCH_TABLE' || err.code === 'ER_BAD_FIELD_ERROR')) {
+        return res.render('adminKyc', {
+          user: req.session.user,
+          users: [],
+          messages: ['KYC is not available yet.'],
+          success: []
+        });
+      }
+      console.error('Error loading KYC queue:', err);
+      return res.status(500).send('Database error');
+    }
+  },
+
+  adminKycApprove(req, res) {
+    const adminId = req.session && req.session.user ? req.session.user.id : null;
+    const userId = req.params.userId;
+    const sql = `
+      UPDATE users
+      SET kycStatus = 'VERIFIED',
+          kycUpdatedAt = NOW(),
+          kycReviewedBy = ?,
+          kycRejectionReason = NULL
+      WHERE id = ?
+    `;
+    db.query(sql, [adminId, userId], (err) => {
+      if (err) {
+        console.error('Error approving KYC:', err);
+        req.flash('error', 'Could not approve KYC.');
+        return res.redirect('/admin/kyc');
+      }
+      req.flash('success', 'KYC approved.');
+      return res.redirect('/admin/kyc');
+    });
+  },
+
+  adminKycReject(req, res) {
+    const adminId = req.session && req.session.user ? req.session.user.id : null;
+    const userId = req.params.userId;
+    const reason = (req.body.reason || '').trim();
+    const sql = `
+      UPDATE users
+      SET kycStatus = 'REJECTED',
+          kycUpdatedAt = NOW(),
+          kycReviewedBy = ?,
+          kycRejectionReason = ?
+      WHERE id = ?
+    `;
+    db.query(sql, [adminId, reason || null, userId], (err) => {
+      if (err) {
+        console.error('Error rejecting KYC:', err);
+        req.flash('error', 'Could not reject KYC.');
+        return res.redirect('/admin/kyc');
+      }
+      req.flash('success', 'KYC rejected.');
+      return res.redirect('/admin/kyc');
+    });
+  },
+
+  async adminActivity(req, res) {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = 20;
+    const q = String(req.query.q || '').trim();
+    const adminIdFilter = req.query && req.query.adminId ? Number(req.query.adminId) : null;
+    const offset = (page - 1) * pageSize;
+    const like = `%${q}%`;
+
+    const baseSql = `
+      FROM admin_activity a
+      LEFT JOIN users u ON u.id = a.admin_id
+    `;
+    const whereParts = [];
+    const params = [];
+    if (q) {
+      whereParts.push('a.action LIKE ? OR a.entity_type LIKE ? OR u.username LIKE ? OR a.details LIKE ?');
+      params.push(like, like, like, like);
+    }
+    if (Number.isFinite(adminIdFilter)) {
+      whereParts.push('a.admin_id = ?');
+      params.push(adminIdFilter);
+    }
+    const whereSql = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+    try {
+      const totalRows = await runQuery(
+        `SELECT COUNT(*) AS total ${baseSql} ${whereSql}`,
+        params
+      );
+      const total = Number(totalRows[0]?.total || 0);
+      const rows = await runQuery(
+        `
+          SELECT
+            a.id,
+            a.admin_id AS adminId,
+            u.username,
+            a.action,
+            a.entity_type AS entityType,
+            a.entity_id AS entityId,
+            a.details,
+            a.ip,
+            a.user_agent AS userAgent,
+            a.created_at AS createdAt
+          ${baseSql}
+          ${whereSql}
+          ORDER BY a.created_at DESC
+          LIMIT ? OFFSET ?
+        `,
+        [...params, pageSize, offset]
+      );
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      return res.render('adminActivity', {
+        user: req.session.user,
+        rows,
+        page,
+        totalPages,
+        total,
+        q,
+        adminIdFilter
+      });
+    } catch (err) {
+      if (err && (err.code === 'ER_NO_SUCH_TABLE' || err.code === 'ER_BAD_FIELD_ERROR')) {
+        return res.render('adminActivity', {
+          user: req.session.user,
+          rows: [],
+          page: 1,
+          totalPages: 1,
+          total: 0,
+          q,
+          adminIdFilter
+        });
+      }
+      console.error('Error fetching admin activity:', err);
+      return res.status(500).send('Database error');
+    }
   },
 
   auditLog(req, res) {
@@ -741,13 +1096,13 @@ const AdminController = {
       const ordersSqlBase = `SELECT COUNT(*) AS value
         FROM orders
         WHERE status IN ('paid','completed','COMPLETED')`;
-      const usersSqlBase = `SELECT COUNT(*) AS value FROM users`;
+      const usersSqlBase = `SELECT COUNT(*) AS value FROM users WHERE (isDeleted = 0 OR isDeleted IS NULL)`;
       const tradesSqlBase = `SELECT COUNT(*) AS value FROM trades`;
 
       const grossSql = rangeStart ? `${grossSqlBase} AND createdAt >= ? AND createdAt < ?` : grossSqlBase;
       const refundsSql = rangeStart ? `${refundsSqlBase} AND r.created_at >= ? AND r.created_at < ?` : refundsSqlBase;
       const ordersSql = rangeStart ? `${ordersSqlBase} AND createdAt >= ? AND createdAt < ?` : ordersSqlBase;
-      const usersSql = rangeStart ? `${usersSqlBase} WHERE createdAt >= ? AND createdAt < ?` : usersSqlBase;
+      const usersSql = rangeStart ? `${usersSqlBase} AND createdAt >= ? AND createdAt < ?` : usersSqlBase;
       const tradesSql = rangeStart ? `${tradesSqlBase} WHERE created_at >= ? AND created_at < ?` : tradesSqlBase;
 
       const grossAllSql = grossSqlBase;
@@ -787,7 +1142,7 @@ const AdminController = {
         ]).then(r => r.rows),
         runQueryWithFallbacks([
           { sql: usersSql, params: rangeParams },
-          { sql: `${usersSqlBase} WHERE created_at >= ? AND created_at < ?`, params: rangeParams },
+          { sql: `${usersSqlBase} AND created_at >= ? AND created_at < ?`, params: rangeParams },
           { sql: usersSqlBase }
         ]).then(r => r.rows),
         runQueryWithFallbacks([
@@ -873,8 +1228,8 @@ const AdminController = {
             { sql: `${ordersSqlBase} AND created_at >= ? AND created_at < ?`, params: prevParams }
           ]).then(r => r.rows),
           runQueryWithFallbacks([
-            { sql: `${usersSqlBase} WHERE createdAt >= ? AND createdAt < ?`, params: prevParams },
-            { sql: `${usersSqlBase} WHERE created_at >= ? AND created_at < ?`, params: prevParams },
+            { sql: `${usersSqlBase} AND createdAt >= ? AND createdAt < ?`, params: prevParams },
+            { sql: `${usersSqlBase} AND created_at >= ? AND created_at < ?`, params: prevParams },
             { sql: usersSqlBase }
           ]).then(r => r.rows),
           runQueryWithFallbacks([
@@ -1149,6 +1504,170 @@ const AdminController = {
         };
       }
 
+      const safeCount = async (queries) => {
+        try {
+          const result = await runQueryWithFallbacks(queries);
+          const row = result && result.rows && result.rows[0] ? result.rows[0] : {};
+          const val = Number(row.value ?? row.total ?? row.count ?? 0);
+          return Number.isFinite(val) ? val : 0;
+        } catch (err) {
+          if (err && (err.code === 'ER_BAD_FIELD_ERROR' || err.code === 'ER_NO_SUCH_TABLE')) {
+            return null;
+          }
+          throw err;
+        }
+      };
+
+      const compliance = {
+        incompleteKyc: await safeCount([
+          {
+            sql: `
+              SELECT COUNT(*) AS value
+              FROM users
+              WHERE (isDeleted = 0 OR isDeleted IS NULL)
+                AND kycStatus IN ('NOT_STARTED','PENDING','REJECTED')
+            `
+          }
+        ]),
+        highRefundRateUsers: await safeCount([
+          {
+            sql: `
+              SELECT COUNT(*) AS value FROM (
+                SELECT
+                  u.id,
+                  COUNT(DISTINCT o.id) AS totalOrders,
+                  COUNT(DISTINCT rr.order_id) AS refundOrders
+                FROM users u
+                LEFT JOIN orders o ON o.userId = u.id
+                LEFT JOIN refund_requests rr ON rr.user_id = u.id AND rr.status = 'APPROVED'
+                WHERE (u.isDeleted = 0 OR u.isDeleted IS NULL)
+                  AND (o.status IN ('paid','completed','COMPLETED') OR o.id IS NULL)
+                GROUP BY u.id
+                HAVING totalOrders > 0 AND refundOrders / totalOrders >= ?
+              ) t
+            `,
+            params: [COMPLIANCE_REFUND_RATE_THRESHOLD]
+          },
+          {
+            sql: `
+              SELECT COUNT(*) AS value FROM (
+                SELECT
+                  u.id,
+                  COUNT(DISTINCT o.id) AS totalOrders,
+                  COUNT(DISTINCT rr.order_id) AS refundOrders
+                FROM users u
+                LEFT JOIN orders o ON o.user_id = u.id
+                LEFT JOIN refund_requests rr ON rr.user_id = u.id AND rr.status = 'APPROVED'
+                WHERE (u.isDeleted = 0 OR u.isDeleted IS NULL)
+                  AND (o.status IN ('paid','completed','COMPLETED') OR o.id IS NULL)
+                GROUP BY u.id
+                HAVING totalOrders > 0 AND refundOrders / totalOrders >= ?
+              ) t
+            `,
+            params: [COMPLIANCE_REFUND_RATE_THRESHOLD]
+          },
+          {
+            sql: `
+              SELECT COUNT(*) AS value FROM (
+                SELECT
+                  u.id,
+                  COUNT(DISTINCT o.id) AS totalOrders,
+                  COUNT(DISTINCT rr.order_id) AS refundOrders
+                FROM users u
+                LEFT JOIN orders o ON o.userId = u.id
+                LEFT JOIN refund_requests rr ON rr.user_id = u.id
+                WHERE (u.isDeleted = 0 OR u.isDeleted IS NULL)
+                GROUP BY u.id
+                HAVING totalOrders > 0 AND refundOrders / totalOrders >= ?
+              ) t
+            `,
+            params: [COMPLIANCE_REFUND_RATE_THRESHOLD]
+          },
+          {
+            sql: `
+              SELECT COUNT(*) AS value FROM (
+                SELECT
+                  u.id,
+                  COUNT(DISTINCT o.id) AS totalOrders,
+                  COUNT(DISTINCT rr.order_id) AS refundOrders
+                FROM users u
+                LEFT JOIN orders o ON o.user_id = u.id
+                LEFT JOIN refund_requests rr ON rr.user_id = u.id
+                WHERE (u.isDeleted = 0 OR u.isDeleted IS NULL)
+                GROUP BY u.id
+                HAVING totalOrders > 0 AND refundOrders / totalOrders >= ?
+              ) t
+            `,
+            params: [COMPLIANCE_REFUND_RATE_THRESHOLD]
+          }
+        ]),
+        highValueNoKycOrders: await safeCount([
+          {
+            sql: `
+              SELECT COUNT(*) AS value
+              FROM orders o
+              JOIN users u ON u.id = o.userId
+              WHERE o.total >= ?
+                AND (u.isDeleted = 0 OR u.isDeleted IS NULL)
+                AND (u.kycStatus IS NULL OR u.kycStatus <> 'VERIFIED')
+            `,
+            params: [COMPLIANCE_HIGH_VALUE_THRESHOLD]
+          },
+          {
+            sql: `
+              SELECT COUNT(*) AS value
+              FROM orders o
+              JOIN users u ON u.id = o.user_id
+              WHERE o.total >= ?
+                AND (u.isDeleted = 0 OR u.isDeleted IS NULL)
+                AND (u.kycStatus IS NULL OR u.kycStatus <> 'VERIFIED')
+            `,
+            params: [COMPLIANCE_HIGH_VALUE_THRESHOLD]
+          }
+        ]),
+        velocityUsers: await safeCount([
+          {
+            sql: `
+              SELECT COUNT(DISTINCT userId) AS value FROM (
+                SELECT o1.userId AS userId
+                FROM orders o1
+                JOIN users u ON u.id = o1.userId
+                JOIN orders o2
+                  ON o2.userId = o1.userId
+                 AND o2.createdAt BETWEEN o1.createdAt AND DATE_ADD(o1.createdAt, INTERVAL ? MINUTE)
+                WHERE (u.isDeleted = 0 OR u.isDeleted IS NULL)
+                GROUP BY o1.userId, o1.id
+                HAVING COUNT(o2.id) >= ?
+              ) t
+            `,
+            params: [COMPLIANCE_VELOCITY_MINUTES, COMPLIANCE_VELOCITY_COUNT]
+          },
+          {
+            sql: `
+              SELECT COUNT(DISTINCT userId) AS value FROM (
+                SELECT o1.user_id AS userId
+                FROM orders o1
+                JOIN users u ON u.id = o1.user_id
+                JOIN orders o2
+                  ON o2.user_id = o1.user_id
+                 AND o2.created_at BETWEEN o1.created_at AND DATE_ADD(o1.created_at, INTERVAL ? MINUTE)
+                WHERE (u.isDeleted = 0 OR u.isDeleted IS NULL)
+                GROUP BY o1.user_id, o1.id
+                HAVING COUNT(o2.id) >= ?
+              ) t
+            `,
+            params: [COMPLIANCE_VELOCITY_MINUTES, COMPLIANCE_VELOCITY_COUNT]
+          }
+        ]),
+        thresholds: {
+          highValue: COMPLIANCE_HIGH_VALUE_THRESHOLD,
+          refundRate: COMPLIANCE_REFUND_RATE_THRESHOLD,
+          velocityCount: COMPLIANCE_VELOCITY_COUNT,
+          velocityMinutes: COMPLIANCE_VELOCITY_MINUTES
+        },
+        windowLabel: 'All time'
+      };
+
       const stats = {
         rangeKey,
         rangeLabel: range.rangeLabel,
@@ -1173,13 +1692,329 @@ const AdminController = {
           refundRate
         },
         chart: chartPayload,
-        recentOrders
+        recentOrders,
+        compliance
       };
 
       res.render('adminDashboard', { user: req.session.user, stats, success });
     } catch (err) {
       console.error('Error building dashboard:', err);
       res.status(500).send('Database error');
+    }
+  },
+
+  async dashboardCsv(req, res) {
+    try {
+      const rangeKey = normalizeRangeKey(req.query.range);
+      const range = getRangeWindow(rangeKey, new Date());
+      let rangeStart = range.rangeStart;
+      let rangeEnd = range.rangeEnd;
+      let days = range.days;
+
+      if (rangeKey === 'ALL') {
+        const minDateRows = await runQueryWithFallbacks([
+          {
+            sql: `
+              SELECT MIN(d) AS minDate
+              FROM (
+                SELECT MIN(createdAt) AS d FROM transactions WHERE paymentStatus = 'COMPLETED'
+                UNION ALL
+                SELECT MIN(createdAt) AS d FROM transactions WHERE paymentStatus = 'COMPLETED' AND paymentMethod = 'REFUND'
+              ) x
+            `
+          },
+          {
+            sql: `
+              SELECT MIN(d) AS minDate
+              FROM (
+                SELECT MIN(createdAt) AS d FROM orders
+                UNION ALL
+                SELECT MIN(created_at) AS d FROM refund_requests
+              ) x
+            `
+          },
+          {
+            sql: `
+              SELECT MIN(d) AS minDate
+              FROM (
+                SELECT MIN(createdAt) AS d FROM orders
+              ) x
+            `
+          }
+        ]).then(r => r.rows);
+        const minDate = minDateRows[0]?.minDate ? new Date(minDateRows[0].minDate) : null;
+        rangeStart = minDate ? new Date(minDate) : new Date(rangeEnd);
+        rangeStart.setHours(0, 0, 0, 0);
+        days = enumerateDays(rangeStart, rangeEnd);
+      }
+
+      const buildRangeParams = (start, end) => (start && end ? [start, end] : []);
+      const rangeParams = buildRangeParams(rangeStart, rangeEnd);
+      const prevParams = buildRangeParams(range.prevStart, range.prevEnd);
+
+      const groupUnit = rangeKey === 'YTD' ? 'WEEK' : rangeKey === 'ALL' ? 'MONTH' : 'DAY';
+      let labels = days;
+      let prevLabels = range.prevDays;
+      if (groupUnit === 'WEEK') {
+        labels = enumerateWeeks(rangeStart, rangeEnd);
+        prevLabels = range.prevStart && range.prevEnd ? enumerateWeeks(range.prevStart, range.prevEnd) : [];
+      } else if (groupUnit === 'MONTH') {
+        labels = enumerateMonths(rangeStart, rangeEnd);
+        prevLabels = range.prevStart && range.prevEnd ? enumerateMonths(range.prevStart, range.prevEnd) : [];
+      }
+
+      const bucketExpr = (col) => {
+        if (groupUnit === 'WEEK') return `DATE_FORMAT(${col}, '%x-W%v')`;
+        if (groupUnit === 'MONTH') return `DATE_FORMAT(${col}, '%Y-%m')`;
+        return `DATE(${col})`;
+      };
+
+      const [
+        grossByDayRows,
+        refundByDayRows,
+        ordersByDayRows
+      ] = await Promise.all([
+        runQueryWithFallbacks([
+          {
+            sql: `
+              SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(amount),0) AS value
+              FROM transactions
+              WHERE paymentStatus = 'COMPLETED' AND paymentMethod <> 'REFUND'
+                AND createdAt >= ? AND createdAt < ?
+              GROUP BY bucket
+              ORDER BY bucket ASC
+            `,
+            params: rangeParams
+          },
+          {
+            sql: `
+              SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(total),0) AS value
+              FROM orders
+              WHERE status IN ('paid','completed','COMPLETED')
+                AND createdAt >= ? AND createdAt < ?
+              GROUP BY bucket
+              ORDER BY bucket ASC
+            `,
+            params: rangeParams
+          },
+          {
+            sql: `
+              SELECT ${bucketExpr('created_at')} AS bucket, COALESCE(SUM(total),0) AS value
+              FROM orders
+              WHERE status IN ('paid','completed','COMPLETED')
+                AND created_at >= ? AND created_at < ?
+              GROUP BY bucket
+              ORDER BY bucket ASC
+            `,
+            params: rangeParams
+          }
+        ]).then(r => r.rows),
+        runQueryWithFallbacks([
+          {
+            sql: `
+              SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(amount),0) AS value
+              FROM transactions
+              WHERE paymentStatus = 'COMPLETED' AND paymentMethod = 'REFUND'
+                AND createdAt >= ? AND createdAt < ?
+              GROUP BY bucket
+              ORDER BY bucket ASC
+            `,
+            params: rangeParams
+          },
+          {
+            sql: `
+              SELECT ${bucketExpr('r.created_at')} AS bucket, COALESCE(SUM(o.total),0) AS value
+              FROM refund_requests r
+              JOIN orders o ON o.id = r.order_id
+              WHERE r.status = 'APPROVED'
+                AND r.created_at >= ? AND r.created_at < ?
+              GROUP BY bucket
+              ORDER BY bucket ASC
+            `,
+            params: rangeParams
+          }
+        ]).then(r => r.rows),
+        runQueryWithFallbacks([
+          {
+            sql: `
+              SELECT ${bucketExpr('createdAt')} AS bucket, COUNT(*) AS value
+              FROM orders
+              WHERE status IN ('paid','completed','COMPLETED')
+                AND createdAt >= ? AND createdAt < ?
+              GROUP BY bucket
+              ORDER BY bucket ASC
+            `,
+            params: rangeParams
+          },
+          {
+            sql: `
+              SELECT ${bucketExpr('created_at')} AS bucket, COUNT(*) AS value
+              FROM orders
+              WHERE status IN ('paid','completed','COMPLETED')
+                AND created_at >= ? AND created_at < ?
+              GROUP BY bucket
+              ORDER BY bucket ASC
+            `,
+            params: rangeParams
+          }
+        ]).then(r => r.rows)
+      ]);
+
+      const grossMap = buildValueMap(grossByDayRows, 'value');
+      const refundMap = buildValueMap(refundByDayRows, 'value');
+      const ordersMap = buildValueMap(ordersByDayRows, 'value');
+
+      const grossSeries = fillSeries(labels, grossMap, 0);
+      const refundSeries = fillSeries(labels, refundMap, 0);
+      const netSeries = grossSeries.map((v, idx) => v - refundSeries[idx]);
+      const ordersSeries = fillSeries(labels, ordersMap, 0);
+
+      let prevNetSeries = [];
+      let prevRefundSeries = [];
+      let prevOrdersSeries = [];
+
+      if (range.prevStart && range.prevEnd) {
+        const [
+          grossPrevByDayRows,
+          refundPrevByDayRows,
+          ordersPrevByDayRows
+        ] = await Promise.all([
+          runQueryWithFallbacks([
+            {
+              sql: `
+                SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(amount),0) AS value
+                FROM transactions
+                WHERE paymentStatus = 'COMPLETED' AND paymentMethod <> 'REFUND'
+                  AND createdAt >= ? AND createdAt < ?
+                GROUP BY bucket
+                ORDER BY bucket ASC
+              `,
+              params: prevParams
+            },
+            {
+              sql: `
+                SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(total),0) AS value
+                FROM orders
+                WHERE status IN ('paid','completed','COMPLETED')
+                  AND createdAt >= ? AND createdAt < ?
+                GROUP BY bucket
+                ORDER BY bucket ASC
+              `,
+              params: prevParams
+            },
+            {
+              sql: `
+                SELECT ${bucketExpr('created_at')} AS bucket, COALESCE(SUM(total),0) AS value
+                FROM orders
+                WHERE status IN ('paid','completed','COMPLETED')
+                  AND created_at >= ? AND created_at < ?
+                GROUP BY bucket
+                ORDER BY bucket ASC
+              `,
+              params: prevParams
+            }
+          ]).then(r => r.rows),
+          runQueryWithFallbacks([
+            {
+              sql: `
+                SELECT ${bucketExpr('createdAt')} AS bucket, COALESCE(SUM(amount),0) AS value
+                FROM transactions
+                WHERE paymentStatus = 'COMPLETED' AND paymentMethod = 'REFUND'
+                  AND createdAt >= ? AND createdAt < ?
+                GROUP BY bucket
+                ORDER BY bucket ASC
+              `,
+              params: prevParams
+            },
+            {
+              sql: `
+                SELECT ${bucketExpr('r.created_at')} AS bucket, COALESCE(SUM(o.total),0) AS value
+                FROM refund_requests r
+                JOIN orders o ON o.id = r.order_id
+                WHERE r.status = 'APPROVED'
+                  AND r.created_at >= ? AND r.created_at < ?
+                GROUP BY bucket
+                ORDER BY bucket ASC
+              `,
+              params: prevParams
+            }
+          ]).then(r => r.rows),
+          runQueryWithFallbacks([
+            {
+              sql: `
+                SELECT ${bucketExpr('createdAt')} AS bucket, COUNT(*) AS value
+                FROM orders
+                WHERE status IN ('paid','completed','COMPLETED')
+                  AND createdAt >= ? AND createdAt < ?
+                GROUP BY bucket
+                ORDER BY bucket ASC
+              `,
+              params: prevParams
+            },
+            {
+              sql: `
+                SELECT ${bucketExpr('created_at')} AS bucket, COUNT(*) AS value
+                FROM orders
+                WHERE status IN ('paid','completed','COMPLETED')
+                  AND created_at >= ? AND created_at < ?
+                GROUP BY bucket
+                ORDER BY bucket ASC
+              `,
+              params: prevParams
+            }
+          ]).then(r => r.rows)
+        ]);
+
+        const grossPrevMap = buildValueMap(grossPrevByDayRows, 'value');
+        const refundPrevMap = buildValueMap(refundPrevByDayRows, 'value');
+        const ordersPrevMap = buildValueMap(ordersPrevByDayRows, 'value');
+        const grossPrevSeries = fillSeries(prevLabels, grossPrevMap, 0);
+        prevRefundSeries = fillSeries(prevLabels, refundPrevMap, 0);
+        prevNetSeries = grossPrevSeries.map((v, idx) => v - prevRefundSeries[idx]);
+        prevOrdersSeries = fillSeries(prevLabels, ordersPrevMap, 0);
+      }
+
+      const alignSeries = (series, targetLength) => {
+        const out = [];
+        for (let i = 0; i < targetLength; i += 1) {
+          out.push(series && series[i] !== undefined ? series[i] : null);
+        }
+        return out;
+      };
+
+      const prevNetAligned = alignSeries(prevNetSeries, labels.length);
+      const prevOrdersAligned = alignSeries(prevOrdersSeries, labels.length);
+      const prevRefundAligned = alignSeries(prevRefundSeries, labels.length);
+
+      const escapeCsv = (value) => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        if (/[",\n]/.test(str)) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const lines = [];
+      lines.push('bucket,net_sales,orders,refunds,prev_net_sales,prev_orders,prev_refunds');
+      labels.forEach((label, idx) => {
+        lines.push([
+          escapeCsv(label),
+          netSeries[idx] ?? '',
+          ordersSeries[idx] ?? '',
+          refundSeries[idx] ?? '',
+          prevNetAligned[idx] ?? '',
+          prevOrdersAligned[idx] ?? '',
+          prevRefundAligned[idx] ?? ''
+        ].join(','));
+      });
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="dashboard-report.csv"');
+      return res.send(lines.join('\n'));
+    } catch (err) {
+      console.error('Error exporting dashboard CSV:', err);
+      return res.status(500).send('Database error');
     }
   },
 
@@ -1440,6 +2275,121 @@ const AdminController = {
     } catch (err) {
       console.error('Error loading daily report:', err);
       res.status(500).send('Database error');
+    }
+  },
+
+  async dailyReportCsv(req, res) {
+    try {
+      const date = String(req.query.date || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).send('Invalid date');
+      }
+
+      const { start, end } = toDateRange(date);
+      const pageSize = 10000;
+
+      const ordersRows = await runQueryWithFallbacks([
+        {
+          sql: `
+            SELECT o.id, o.userId, o.total, o.createdAt, o.status, u.username, u.email
+            FROM orders o
+            LEFT JOIN users u ON u.id = o.userId
+            WHERE o.status IN ('paid','completed','COMPLETED')
+              AND o.createdAt >= ? AND o.createdAt < ?
+            ORDER BY o.createdAt DESC
+            LIMIT ? OFFSET 0
+          `,
+          params: [start, end, pageSize]
+        },
+        {
+          sql: `
+            SELECT o.id, o.user_id AS userId, o.total, o.created_at AS createdAt, o.status, u.username, u.email
+            FROM orders o
+            LEFT JOIN users u ON u.id = o.user_id
+            WHERE o.status IN ('paid','completed','COMPLETED')
+              AND o.created_at >= ? AND o.created_at < ?
+            ORDER BY o.created_at DESC
+            LIMIT ? OFFSET 0
+          `,
+          params: [start, end, pageSize]
+        }
+      ]).then(r => r.rows);
+
+      const refundsRows = await runQueryWithFallbacks([
+        {
+          sql: `
+            SELECT t.id AS refund_id, t.orderId AS order_id, o.userId AS user_id, u.username, u.email,
+                   t.amount, t.paymentStatus AS status, t.createdAt AS createdAt
+            FROM transactions t
+            JOIN orders o ON o.id = t.orderId
+            JOIN users u ON u.id = o.userId
+            WHERE t.paymentStatus = 'COMPLETED' AND t.paymentMethod = 'REFUND'
+              AND t.createdAt >= ? AND t.createdAt < ?
+            ORDER BY t.createdAt DESC
+            LIMIT ? OFFSET 0
+          `,
+          params: [start, end, pageSize]
+        },
+        {
+          sql: `
+            SELECT r.id AS refund_id, r.order_id, r.user_id, u.username, u.email,
+                   o.total AS amount, r.status, r.created_at AS createdAt
+            FROM refund_requests r
+            JOIN orders o ON o.id = r.order_id
+            JOIN users u ON u.id = r.user_id
+            WHERE r.status = 'APPROVED'
+              AND r.created_at >= ? AND r.created_at < ?
+            ORDER BY r.created_at DESC
+            LIMIT ? OFFSET 0
+          `,
+          params: [start, end, pageSize]
+        }
+      ]).then(r => r.rows);
+
+      const escapeCsv = (value) => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        if (/[",\n]/.test(str)) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const lines = [];
+      lines.push('section,id,order_id,user_id,username,email,amount,status,created_at');
+      (ordersRows || []).forEach(o => {
+        lines.push([
+          'order',
+          o.id,
+          '',
+          o.userId,
+          escapeCsv(o.username || ''),
+          escapeCsv(o.email || ''),
+          o.total,
+          o.status || '',
+          o.createdAt ? new Date(o.createdAt).toISOString() : ''
+        ].join(','));
+      });
+      (refundsRows || []).forEach(r => {
+        lines.push([
+          'refund',
+          r.refund_id,
+          r.order_id,
+          r.user_id,
+          escapeCsv(r.username || ''),
+          escapeCsv(r.email || ''),
+          r.amount,
+          r.status || '',
+          r.createdAt ? new Date(r.createdAt).toISOString() : ''
+        ].join(','));
+      });
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="daily-report.csv"');
+      return res.send(lines.join('\n'));
+    } catch (err) {
+      console.error('Error exporting daily report CSV:', err);
+      return res.status(500).send('Database error');
     }
   }
 };

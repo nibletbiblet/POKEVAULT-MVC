@@ -59,6 +59,7 @@
         <small class="text-white-50"><%= date %></small>
       </div>
       <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-light btn-sm" id="exportCsvBtn" data-url="/admin/reports/daily.csv?date=<%= date %>">Export CSV</button>
         <a class="btn btn-outline-light btn-sm" href="/admin/dashboard">Back to Dashboard</a>
       </div>
     </div>
@@ -176,5 +177,55 @@
       <% } %>
     </div>
   </main>
+  <div class="modal fade" id="adminKeyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content bg-dark text-white">
+        <div class="modal-header border-0">
+          <h5 class="modal-title">Admin Authority Confirmation</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">Please enter admin key to confirm this action.</p>
+          <input type="password" id="adminKeyInput" class="form-control" placeholder="Admin key">
+          <div id="adminKeyError" class="text-danger small mt-2"></div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-light btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger btn-sm" id="adminKeyConfirm">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      const exportBtn = document.getElementById('exportCsvBtn');
+      const keyModal = document.getElementById('adminKeyModal');
+      const keyInput = document.getElementById('adminKeyInput');
+      const keyError = document.getElementById('adminKeyError');
+      const confirmBtn = document.getElementById('adminKeyConfirm');
+      const bootstrapModal = keyModal ? new bootstrap.Modal(keyModal) : null;
+
+      if (!exportBtn) return;
+      exportBtn.addEventListener('click', () => {
+        if (keyError) keyError.textContent = '';
+        if (keyInput) keyInput.value = '';
+        if (bootstrapModal) bootstrapModal.show();
+      });
+
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => {
+          const adminKey = keyInput ? keyInput.value.trim() : '';
+          if (!adminKey) {
+            if (keyError) keyError.textContent = 'Admin key is required.';
+            return;
+          }
+          if (!confirm('Are you sure you want to proceed? This action cannot be undone.')) return;
+          const baseUrl = exportBtn.dataset.url || '';
+          const sep = baseUrl.includes('?') ? '&' : '?';
+          window.location.href = `${baseUrl}${sep}adminKey=${encodeURIComponent(adminKey)}`;
+        });
+      }
+    })();
+  </script>
 </body>
 </html>

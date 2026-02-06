@@ -9,6 +9,7 @@
 const Product = require('../models/Product');
 const Review = require('../models/Review');
 const db = require('../db');
+const { logAdminActivity } = require('../services/adminActivity');
 
 const LOW_STOCK_THRESHOLD = 10;
 
@@ -49,35 +50,142 @@ const ProductController = {
 
   // Shopping (user view)
   shopping(req, res) {
-    Product.getActive((err, products) => {
-      if (err) {
-        console.error('Error fetching products:', err);
-        return res.status(500).send('Database error');
+    const user = req.session ? req.session.user : null;
+    const rawQuery = (req.query && typeof req.query.q === 'string') ? req.query.q.trim() : '';
+    const rawCategory = (req.query && typeof req.query.category === 'string') ? req.query.category.trim() : '';
+    const rawRarity = (req.query && typeof req.query.rarity === 'string') ? req.query.rarity.trim() : '';
+    const rawMinPrice = (req.query && typeof req.query.minPrice === 'string') ? req.query.minPrice.trim() : '';
+    const rawMaxPrice = (req.query && typeof req.query.maxPrice === 'string') ? req.query.maxPrice.trim() : '';
+    const rawSort = (req.query && typeof req.query.sort === 'string') ? req.query.sort.trim() : '';
+
+    let minPrice = rawMinPrice === '' ? null : Number(rawMinPrice);
+    let maxPrice = rawMaxPrice === '' ? null : Number(rawMaxPrice);
+    if (!Number.isFinite(minPrice)) minPrice = null;
+    if (!Number.isFinite(maxPrice)) maxPrice = null;
+    if (minPrice !== null && maxPrice !== null && minPrice > maxPrice) {
+      const tmp = minPrice;
+      minPrice = maxPrice;
+      maxPrice = tmp;
+    }
+
+    const columnsSql = `
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'products'
+    `;
+    db.query(columnsSql, (colErr, colRows) => {
+      if (colErr) {
+        console.error('Error reading product columns:', colErr);
       }
-      const user = req.session ? req.session.user : null;
-      Review.getStatsByProduct((revErr, statsMap) => {
-        if (revErr) {
-          console.error('Error fetching review stats:', revErr);
+      const columnSet = new Set((colRows || []).map(r => String(r.COLUMN_NAME || '').toLowerCase()));
+      const hasDescription = columnSet.has('description');
+      const hasCategory = columnSet.has('category');
+      const hasCreatedAt = columnSet.has('created_at') || columnSet.has('createdat');
+
+      const where = [];
+      const params = [];
+      if (rawQuery) {
+        const like = `%${rawQuery.toLowerCase()}%`;
+        if (hasDescription) {
+          where.push('(LOWER(productName) LIKE ? OR LOWER(description) LIKE ?)');
+          params.push(like, like);
+        } else {
+          where.push('LOWER(productName) LIKE ?');
+          params.push(like);
+        }
+      }
+      if (rawRarity) {
+        where.push('LOWER(rarity) LIKE ?');
+        params.push(`%${rawRarity.toLowerCase()}%`);
+      }
+      if (rawCategory) {
+        if (hasCategory) {
+          where.push('LOWER(category) LIKE ?');
+          params.push(`%${rawCategory.toLowerCase()}%`);
+        } else {
+          where.push('LOWER(rarity) LIKE ?');
+          params.push(`%${rawCategory.toLowerCase()}%`);
+        }
+      }
+      if (minPrice !== null) {
+        where.push('price >= ?');
+        params.push(minPrice);
+      }
+      if (maxPrice !== null) {
+        where.push('price <= ?');
+        params.push(maxPrice);
+      }
+
+      let sql = 'SELECT * FROM products';
+      if (where.length) {
+        sql += ` WHERE ${where.join(' AND ')}`;
+      }
+      if (rawSort === 'price_asc') {
+        sql += ' ORDER BY price ASC';
+      } else if (rawSort === 'price_desc') {
+        sql += ' ORDER BY price DESC';
+      } else if (rawSort === 'newest') {
+        if (hasCreatedAt && columnSet.has('created_at')) {
+          sql += ' ORDER BY created_at DESC';
+        } else if (hasCreatedAt && columnSet.has('createdat')) {
+          sql += ' ORDER BY createdAt DESC';
+        } else {
+          sql += ' ORDER BY id DESC';
+        }
+      }
+
+      db.query(sql, params, (err, products) => {
+        if (err) {
+          console.error('Error fetching products:', err);
           return res.status(500).send('Database error');
         }
-        const salesSql = `
-          SELECT productId, SUM(quantity) AS sold
-          FROM order_items
-          GROUP BY productId
-          ORDER BY sold DESC
-          LIMIT 3
-        `;
-        db.query(salesSql, (salesErr, rows) => {
-          if (salesErr) {
-            console.error('Error fetching best sellers by sales:', salesErr);
+        Review.getStatsByProduct((revErr, statsMap) => {
+          if (revErr) {
+            console.error('Error fetching review stats:', revErr);
+            return res.status(500).send('Database error');
           }
-          const salesMap = new Map();
-          (rows || []).forEach(r => salesMap.set(r.productId, Number(r.sold) || 0));
-          const ranked = (products || [])
-            .filter(p => salesMap.has(p.id))
-            .sort((a, b) => (salesMap.get(b.id) || 0) - (salesMap.get(a.id) || 0));
-          const bestSellers = ranked.slice(0, 3);
-          return res.render('shopping', { products, user, reviewStatsMap: statsMap, bestSellers });
+          const salesSql = `
+            SELECT productId, SUM(quantity) AS sold
+            FROM order_items
+            GROUP BY productId
+            ORDER BY sold DESC
+            LIMIT 3
+          `;
+          db.query(salesSql, (salesErr, rows) => {
+            if (salesErr) {
+              console.error('Error fetching best sellers by sales:', salesErr);
+            }
+            const salesMap = new Map();
+            (rows || []).forEach(r => salesMap.set(r.productId, Number(r.sold) || 0));
+            const ranked = (products || [])
+              .filter(p => salesMap.has(p.id))
+              .sort((a, b) => (salesMap.get(b.id) || 0) - (salesMap.get(a.id) || 0));
+            const bestSellers = ranked.slice(0, 3);
+            const availableRarities = Array.from(
+              new Set((products || []).map(p => (p.rarity || '').trim()).filter(Boolean))
+            ).sort((a, b) => a.localeCompare(b));
+            const availableCategories = Array.from(
+              new Set((products || []).map(p => (p.category || '').trim()).filter(Boolean))
+            ).sort((a, b) => a.localeCompare(b));
+            const filters = {
+              q: rawQuery,
+              category: rawCategory,
+              rarity: rawRarity,
+              minPrice: rawMinPrice,
+              maxPrice: rawMaxPrice,
+              sort: rawSort
+            };
+            return res.render('shopping', {
+              products,
+              user,
+              reviewStatsMap: statsMap,
+              bestSellers,
+              availableRarities,
+              availableCategories,
+              filters
+            });
+          });
         });
       });
     });
@@ -142,6 +250,10 @@ const ProductController = {
         console.error('Error adding product:', err);
         return res.status(500).send('Database error');
       }
+      logAdminActivity(req, 'PRODUCT_CREATE', 'product', result && result.insertId ? result.insertId : null, {
+        name: product.productName,
+        price: product.price
+      });
       return res.redirect('/inventory');
     });
   },
@@ -181,6 +293,10 @@ const ProductController = {
         console.error('Error updating product:', err);
         return res.status(500).send('Database error');
       }
+      logAdminActivity(req, 'PRODUCT_UPDATE', 'product', id, {
+        name: product.productName,
+        price: product.price
+      });
       return res.redirect('/inventory');
     });
   },
@@ -193,6 +309,7 @@ const ProductController = {
         console.error('Error deleting product:', err);
         return res.status(500).send('Database error');
       }
+      logAdminActivity(req, 'PRODUCT_DELETE', 'product', id, {});
       return res.redirect('/inventory');
     });
   },
@@ -206,6 +323,7 @@ const ProductController = {
         console.error('Error updating product status:', err);
         return res.status(500).send('Database error');
       }
+      logAdminActivity(req, 'PRODUCT_SET_ACTIVE', 'product', id, { isActive });
       return res.redirect('/inventory');
     });
   },

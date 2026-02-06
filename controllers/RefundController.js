@@ -10,6 +10,7 @@ const Order = require('../models/Order');
 const RefundRequestModel = require('../models/RefundRequestModel');
 const WalletModel = require('../models/WalletModel');
 const Transaction = require('../models/Transaction');
+const { logAdminActivity } = require('../services/adminActivity');
 
 const canRequestRefund = (status) => {
   if (!status) return true;
@@ -132,7 +133,10 @@ exports.adminApprove = (req, res) => {
               status: 'COMPLETED',
               reference: `REFUND_${orderId}`,
               amount: refundAmount
-            }, () => res.redirect('/admin/orders-status'));
+            }, () => {
+              logAdminActivity(req, 'REFUND_APPROVE', 'order', orderId, { amount: refundAmount });
+              res.redirect('/admin/orders-status');
+            });
           });
         });
       });
@@ -153,6 +157,7 @@ exports.adminReject = (req, res) => {
 
       Order.updateStatus(orderId, 'COMPLETED', err3 => {
         if (err3) return res.status(500).send('Failed to update order status');
+        logAdminActivity(req, 'REFUND_REJECT', 'order', orderId, {});
         res.redirect('/admin/orders-status');
       });
     });
