@@ -19,7 +19,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="/theme.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <title>Supermarket App - Shopping</title>
+  <title>PokeVault - Marketplace</title>
   <style>
     /* Keep layout consistent with inventory.ejs and index.ejs */
     body {
@@ -445,6 +445,13 @@ background-size: cover;
   <a class="visually-hidden-focusable" href="#main-content">Skip to main content</a>
 
   <main id="main-content" class="container flex-grow-1 py-4 page-shell" role="main">
+    <div class="alert alert-info border-0 shadow-sm">
+      <div class="fw-semibold mb-1">Marketplace Flow</div>
+      <div class="small mb-0">
+        Browse, search, and filter listings here. Only admin-approved and authenticity-verified listings are published.
+        KYC is enforced automatically for high-value checkout.
+      </div>
+    </div>
 
     <% const topThree = Array.isArray(bestSellers) ? bestSellers : []; %>
     <% if (topThree.length) { %>
@@ -474,7 +481,7 @@ background-size: cover;
                         <% if (prod.rarity) { %>
                           <span class="rarity-pill rarity-<%= rarityClass %>"><%= prod.rarity %></span>
                         <% } %>
-                        <span class="rating-pill">? <%= Number(stat.avg || 0).toFixed(1) %> (<%= stat.count || 0 %>)</span>
+                        <span class="rating-pill">★ <%= Number(stat.avg || 0).toFixed(1) %> (<%= stat.count || 0 %>)</span>
                       </div>
                       <div class="product-price">
                         <% if (hasDiscount) { %>
@@ -511,26 +518,40 @@ background-size: cover;
       </section>
     <% } %>
     <div class="inventory-actions mb-3">
-      <div class="row g-2 align-items-center">
-        <div class="col-12 col-md-6 col-lg-4">
-          <input id="productSearch" type="search" class="form-control form-control-sm search-box" placeholder="Search products..." aria-label="Search products">
+      <form class="row g-2 align-items-center" method="GET" action="/shopping">
+        <div class="col-12 col-md-6 col-lg-3">
+          <input id="productSearch" name="q" type="search" class="form-control form-control-sm search-box" placeholder="Search products..." aria-label="Search products" value="<%= (filters && filters.q) ? filters.q : '' %>">
         </div>
-        <div class="col-12 col-md-3 col-lg-3">
-          <select id="rarityFilter" class="form-select form-select-sm filter-select" aria-label="Filter by rarity">
-            <option value="">All rarities</option>
-          </select>
+        <div class="col-12 col-md-3 col-lg-2">
+          <% if (availableRarities && availableRarities.length) { %>
+            <select name="rarity" class="form-select form-select-sm filter-select" aria-label="Filter by rarity">
+              <option value="">All rarities</option>
+              <% availableRarities.forEach(r => { %>
+                <option value="<%= r %>" <%= (filters && filters.rarity === r) ? 'selected' : '' %>><%= r %></option>
+              <% }) %>
+            </select>
+          <% } else { %>
+            <input name="rarity" type="text" class="form-control form-control-sm search-box" placeholder="Rarity" aria-label="Rarity" value="<%= (filters && filters.rarity) ? filters.rarity : '' %>">
+          <% } %>
         </div>
-        <div class="col-12 col-md-3 col-lg-3">
-          <select id="sortSelect" class="form-select form-select-sm filter-select" aria-label="Sort products">
+        <div class="col-6 col-md-3 col-lg-2">
+          <input name="minPrice" type="number" step="0.01" min="0" class="form-control form-control-sm search-box" placeholder="Min price" aria-label="Minimum price" value="<%= (filters && filters.minPrice) ? filters.minPrice : '' %>">
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+          <input name="maxPrice" type="number" step="0.01" min="0" class="form-control form-control-sm search-box" placeholder="Max price" aria-label="Maximum price" value="<%= (filters && filters.maxPrice) ? filters.maxPrice : '' %>">
+        </div>
+        <div class="col-12 col-md-3 col-lg-2">
+          <select name="sort" class="form-select form-select-sm filter-select" aria-label="Sort products">
             <option value="">Sort: Recommended</option>
-            <option value="price-asc">Price: Ascending</option>
-            <option value="price-desc">Price: Decending</option>
-            <option value="rating-desc">Rating: Decending</option>
-            <option value="rating-asc">Rating: Ascending</option>
-            <option value="best">Best Selling</option>
+            <option value="price_asc" <%= (filters && filters.sort === 'price_asc') ? 'selected' : '' %>>Price: Ascending</option>
+            <option value="price_desc" <%= (filters && filters.sort === 'price_desc') ? 'selected' : '' %>>Price: Descending</option>
+            <option value="newest" <%= (filters && filters.sort === 'newest') ? 'selected' : '' %>>Newest</option>
           </select>
         </div>
-      </div>
+        <div class="col-12 col-md-3 col-lg-1">
+          <button type="submit" class="btn btn-neon btn-sm w-100">Filter</button>
+        </div>
+      </form>
     </div>
 
     <div class="inventory-grid">
@@ -547,7 +568,7 @@ background-size: cover;
             <% const rarityClass = (products[i].rarity || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'); %>
             <div
               class="col-12 col-sm-6 col-lg-4 col-xl-3 product-card-wrapper"
-              data-search="<%= (products[i].productName + ' ' + (products[i].rarity || '')).toLowerCase() %>"
+              data-search="<%= (products[i].productName + ' ' + (products[i].rarity || '') + ' ' + (products[i].category || '') + ' ' + (products[i].description || '')).toLowerCase() %>"
               data-rarity="<%= (products[i].rarity || '').toLowerCase() %>"
               data-price="<%= effectivePrice %>"
               data-rating="<%= stat.avg || 0 %>"
@@ -660,72 +681,6 @@ background-size: cover;
       }
     }
 
-    // Client-side filter and sort for product cards by name/rarity/rating/price
-    (function() {
-      const searchInput = document.getElementById('productSearch');
-      const categorySelect = document.getElementById('rarityFilter');
-      const sortSelect = document.getElementById('sortSelect');
-      if (!searchInput || !categorySelect) return;
-
-      const cards = Array.from(document.querySelectorAll('.product-card-wrapper'));
-      const gridRow = document.querySelector('.inventory-grid .row');
-
-      const categories = new Set();
-      cards.forEach(card => {
-        const cat = (card.dataset.rarity || '').trim();
-        if (cat) categories.add(cat);
-      });
-      Array.from(categories).sort().forEach(cat => {
-        const opt = document.createElement('option');
-        opt.value = cat;
-        opt.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
-        categorySelect.appendChild(opt);
-      });
-
-      function applyFilterAndSort() {
-        const term = searchInput.value.trim().toLowerCase();
-        const cat = categorySelect.value.trim();
-        const visible = [];
-        cards.forEach(card => {
-          const termSpace = card.dataset.search || '';
-          const cardCat = card.dataset.rarity || '';
-          const matchesTerm = termSpace.includes(term);
-          const matchesCategory = !cat || cardCat === cat;
-          const show = matchesTerm && matchesCategory;
-          card.style.display = show ? '' : 'none';
-          if (show) visible.push(card);
-        });
-
-        if (sortSelect && gridRow) {
-          const sortVal = sortSelect.value;
-          visible.sort((a, b) => {
-            const priceA = Number(a.dataset.price || 0);
-            const priceB = Number(b.dataset.price || 0);
-            const ratingA = Number(a.dataset.rating || 0);
-            const ratingB = Number(b.dataset.rating || 0);
-            const salesA = Number(a.dataset.sales || 0);
-            const salesB = Number(b.dataset.sales || 0);
-            switch (sortVal) {
-              case 'price-asc': return priceA - priceB;
-              case 'price-desc': return priceB - priceA;
-              case 'rating-desc': return ratingB - ratingA;
-              case 'rating-asc': return ratingA - ratingB;
-              case 'best':
-                if (salesB !== salesA) return salesB - salesA;
-                return ratingB - ratingA;
-              default: return 0;
-            }
-          });
-          visible.forEach(card => gridRow.appendChild(card));
-        }
-      }
-
-      searchInput.addEventListener('input', applyFilterAndSort);
-      categorySelect.addEventListener('change', applyFilterAndSort);
-      if (sortSelect) sortSelect.addEventListener('change', applyFilterAndSort);
-
-      applyFilterAndSort();
-    })();
   </script>
 
 

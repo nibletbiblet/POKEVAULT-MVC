@@ -17,6 +17,7 @@ const { applyCoinsToOrder, creditCoins } = require('../services/coinsHelper');
 
 const GST_RATE = 0.09;
 const DELIVERY_RATE = 0.15;
+const KYC_THRESHOLD = Number(process.env.KYC_THRESHOLD || 200);
 
 const validatePromo = (code, subtotal, callback) => {
   if (!code) return callback(null, null);
@@ -58,6 +59,18 @@ const computeTotals = (cart, promo) => {
   return { subtotal, promoAmount, gst, deliveryFee, total };
 };
 
+const shouldRequireKyc = (userId, total, cb) => {
+  if (!Number.isFinite(Number(total)) || Number(total) < KYC_THRESHOLD) {
+    return cb(false);
+  }
+  const sql = 'SELECT kycStatus FROM users WHERE id = ? LIMIT 1';
+  db.query(sql, [userId], (err, rows) => {
+    if (err) return cb(false);
+    const status = rows && rows[0] ? rows[0].kycStatus : null;
+    return cb(status !== 'VERIFIED');
+  });
+};
+
 exports.startCheckout = (req, res) => {
   const cart = req.session.cart || [];
   const user = req.session.user;
@@ -97,33 +110,39 @@ exports.startCheckout = (req, res) => {
 
   const finalize = (promoApplied) => {
     const totals = computeTotals(cart, promoApplied);
-    const orderData = { userId: user.id, total: totals.total, address: address || null };
-
-    Order.create(orderData, cart, (err, result) => {
-      if (err) {
-        console.error('Error creating NETS order:', err);
-        req.flash('error', err.message || 'Could not place order, please try again.');
-        return res.redirect('/checkout');
+    shouldRequireKyc(user.id, totals.total, (requiresKyc) => {
+      if (requiresKyc) {
+        req.flash('error', 'KYC required for high-value trades.');
+        return res.redirect('/kyc');
       }
+      const orderData = { userId: user.id, total: totals.total, address: address || null };
 
-      const orderId = result.orderId;
-      Order.updateStatus(orderId, 'TO_PAY', (statusErr) => {
-        if (statusErr) {
-          console.error('Failed to mark NETS order TO_PAY:', statusErr);
+      Order.create(orderData, cart, (err, result) => {
+        if (err) {
+          console.error('Error creating NETS order:', err);
+          req.flash('error', err.message || 'Could not place order, please try again.');
+          return res.redirect('/checkout');
         }
 
-        req.session.toPayOrderId = orderId;
-        req.session.netsPayment = {
-          type: 'ORDER',
-          orderId,
-          promo: promoApplied ? { code: promoApplied.code, amount: promoApplied.amount } : null
-        };
+        const orderId = result.orderId;
+        Order.updateStatus(orderId, 'TO_PAY', (statusErr) => {
+          if (statusErr) {
+            console.error('Failed to mark NETS order TO_PAY:', statusErr);
+          }
 
-        const coinsApplied = Number(req.session.coinsApplied || 0);
-        const payable = Math.max(0, totals.total - coinsApplied);
-        req.session.save(() => {
-          req.body.cartTotal = payable.toFixed(2);
-          return netsQr.generateQrCode(req, res);
+          req.session.toPayOrderId = orderId;
+          req.session.netsPayment = {
+            type: 'ORDER',
+            orderId,
+            promo: promoApplied ? { code: promoApplied.code, amount: promoApplied.amount } : null
+          };
+
+          const coinsApplied = Number(req.session.coinsApplied || 0);
+          const payable = Math.max(0, totals.total - coinsApplied);
+          req.session.save(() => {
+            req.body.cartTotal = payable.toFixed(2);
+            return netsQr.generateQrCode(req, res);
+          });
         });
       });
     });

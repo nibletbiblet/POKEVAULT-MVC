@@ -126,6 +126,10 @@ background-size: cover;
     const payableTotal = Math.max(0, localTotal - coinsAppliedLocal);
     const bnplEnabled = payableTotal > 100;
     const itemCount = (cart || []).reduce((sum, item) => sum + item.quantity, 0);
+    const preferBnpl = bnplEnabled && (String(bnplSelected || '') === '1' || String(bnplSelected || '').toLowerCase() === 'true');
+    const preferredPlan = (String(bnplPlan || bnplPlanMonths || '').trim() === '12') ? '12' : '6';
+    const hasBnplCard = !!bnplCard;
+    const bnplSetupSuccess = (successMessages || []).some(msg => String(msg).toLowerCase().includes('bnpl card setup successful'));
   %>
   <nav class="navbar navbar-expand-sm navbar-dark bg-dark custom-navbar">
     <div class="container-fluid">
@@ -156,6 +160,9 @@ background-size: cover;
           <h4 class="mb-3 fw-bold">Order Summary</h4>
           <% if (messages && messages.length) { %>
             <div class="alert alert-danger py-2"><%= messages[0] %></div>
+          <% } %>
+          <% if (successMessages && successMessages.length) { %>
+            <div class="alert alert-success py-2"><%= successMessages[0] %></div>
           <% } %>
           <% if (promoApplied) { %>
             <div class="alert alert-success py-2">Promo applied: <%= promoApplied.code %> (-$<%= promoApplied.amount.toFixed(2) %>)</div>
@@ -266,7 +273,7 @@ background-size: cover;
               <% const walletEnabled = (typeof walletBalance !== 'undefined') ? Number(walletBalance) >= payableTotal : false; %>
               <div class="d-flex gap-2 flex-wrap">
                 <label class="pill-choice">
-                  <input type="radio" name="paymentMethod" value="stripe" checked required>
+                  <input type="radio" name="paymentMethod" value="stripe" <%= preferBnpl ? '' : 'checked' %> required>
                   <span>Stripe Checkout</span>
                 </label>
                 <label class="pill-choice">
@@ -286,8 +293,11 @@ background-size: cover;
                   <span>PokeVault Pay</span>
                 </label>
                 <label class="pill-choice <%= bnplEnabled ? '' : 'is-disabled' %>">
-                  <input type="radio" name="paymentMethod" value="bnpl" <%= bnplEnabled ? '' : 'disabled' %>>
+                  <input type="radio" name="paymentMethod" value="bnpl" <%= bnplEnabled ? '' : 'disabled' %> <%= preferBnpl ? 'checked' : '' %>>
                   <span>BNPL</span>
+                  <% if (hasBnplCard) { %>
+                    <span class="text-success small ms-1"><%= bnplSetupSuccess ? 'Card setup successful' : 'Card ready' %></span>
+                  <% } %>
                 </label>
                 <label class="pill-choice">
                   <input type="radio" name="paymentMethod" value="cash">
@@ -336,17 +346,21 @@ background-size: cover;
               <small class="text-white-50 d-block mt-2" id="metamaskStatus">You will approve the ETH transfer in MetaMask.</small>
             </div>
             <div class="mb-3" id="bnpl-section" style="display:none;">
-              <div class="fw-semibold mb-2">Choose installment plan</div>
-              <div class="bnpl-plan">
-                <label>
-                  <input type="radio" name="bnplPlan" value="6" checked>
-                  6 months
-                </label>
-                <label>
-                  <input type="radio" name="bnplPlan" value="12">
-                  12 months
-                </label>
-              </div>
+              <% if (!hasBnplCard) { %>
+                <div class="fw-semibold mb-2">Choose installment plan</div>
+                <div class="bnpl-plan">
+                  <label>
+                    <input type="radio" name="bnplPlan" value="6" <%= preferredPlan === '6' ? 'checked' : '' %>>
+                    6 months
+                  </label>
+                  <label>
+                    <input type="radio" name="bnplPlan" value="12" <%= preferredPlan === '12' ? 'checked' : '' %>>
+                    12 months
+                  </label>
+                </div>
+              <% } else { %>
+                <input type="hidden" name="bnplPlan" value="<%= preferredPlan %>">
+              <% } %>
               <div class="bnpl-summary">
                 <div class="d-flex justify-content-between">
                   <span class="text-white-50">Total</span>
@@ -358,13 +372,22 @@ background-size: cover;
                 </div>
               </div>
               <div class="d-grid mt-3">
-                <button type="button" class="btn btn-cta" id="bnplContinueBtn">Continue with BNPL</button>
+                <button type="button" class="btn btn-cta" id="bnplContinueBtn"><%= hasBnplCard ? 'Pay with BNPL' : 'Continue with BNPL' %></button>
               </div>
-              <small class="text-white-50 d-block mt-2">You will set up a BNPL card if you have not done so before.</small>
+              <small class="text-white-50 d-block mt-2">
+                <%= hasBnplCard ? 'Your BNPL card is ready. Complete payment to generate the invoice.' : 'You will set up a BNPL card if you have not done so before.' %>
+              </small>
+              <% if (hasBnplCard) { %>
+                <button type="submit" class="btn btn-outline-light w-100 mt-2"
+                        formaction="/bnpl/card/cancel" formmethod="POST">
+                  Cancel BNPL Card Setup
+                </button>
+              <% } %>
             </div>
             <div class="d-grid">
               <button type="submit" class="btn btn-cta" id="placeOrderBtn">Place Order</button>
             </div>
+            <input type="hidden" name="bnplAutoPay" id="bnplAutoPay" value="0">
           </form>
         </div>
       </div>
@@ -391,10 +414,13 @@ background-size: cover;
       const bnplContinueBtn = document.getElementById('bnplContinueBtn');
       const bnplMonthly = document.getElementById('bnplMonthly');
       const bnplPlanRadios = Array.from(document.querySelectorAll('input[name="bnplPlan"]'));
+      const bnplAutoPayInput = document.getElementById('bnplAutoPay');
       const addressInput = document.querySelector('textarea[name="address"]');
       const checkoutForm = document.getElementById('checkoutForm');
       const payableTotal = Number("<%= payableTotal.toFixed(2) %>");
       const bnplEnabled = <%= bnplEnabled ? 'true' : 'false' %>;
+      const hasBnplCard = <%= hasBnplCard ? 'true' : 'false' %>;
+      const preferredPlan = "<%= preferredPlan %>";
 
       const updatePaymentUI = () => {
         const selected = paymentRadios.find(radio => radio.checked);
@@ -422,7 +448,7 @@ background-size: cover;
       const updateBnplMonthly = () => {
         if (!bnplMonthly) return;
         const selectedPlan = bnplPlanRadios.find(r => r.checked);
-        const months = selectedPlan ? Number(selectedPlan.value) : 6;
+        const months = selectedPlan ? Number(selectedPlan.value) : Number(preferredPlan || 6);
         const perMonth = months > 0 ? (payableTotal / months) : payableTotal;
         bnplMonthly.textContent = `$${perMonth.toFixed(2)}`;
       };
@@ -437,6 +463,9 @@ background-size: cover;
           const selectedPayment = paymentRadios.find(radio => radio.value === 'bnpl');
           if (selectedPayment) selectedPayment.checked = true;
           if (checkoutForm) {
+            if (bnplAutoPayInput) {
+              bnplAutoPayInput.value = hasBnplCard ? '1' : '0';
+            }
             checkoutForm.requestSubmit();
           } else {
             const selectedPlan = bnplPlanRadios.find(r => r.checked);
@@ -459,6 +488,10 @@ background-size: cover;
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.url) {
+              if (data && data.redirectUrl) {
+                window.location.href = data.redirectUrl;
+                return;
+              }
               throw new Error(data.error || 'Unable to start Stripe checkout.');
             }
             window.location.href = data.url;
@@ -578,8 +611,15 @@ background-size: cover;
               amount: "<%= payableTotal.toFixed(2) %>"
             })
           })
-            .then((res) => res.json())
-            .then((data) => {
+            .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+              if (!ok) {
+                if (data && data.redirectUrl) {
+                  window.location.href = data.redirectUrl;
+                  return '';
+                }
+                throw new Error(data.error || 'Unable to start PayPal checkout.');
+              }
               if (data.error) throw new Error(data.error);
               return data.id;
             });

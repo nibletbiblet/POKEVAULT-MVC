@@ -16,4 +16,7 @@ router.post('/login', checkBannedLogin, UserController.login);
 
 router.get('/logout', requireAuth, UserController.logout);
 
+router.get('/kyc', requireAuth, UserController.kycForm);
+router.post('/kyc', requireAuth, UserController.kycSubmit);
+
 module.exports = router;

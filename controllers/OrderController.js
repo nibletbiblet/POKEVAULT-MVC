@@ -12,6 +12,8 @@ const Transaction = require('../models/Transaction');
 const WalletModel = require('../models/WalletModel');
 const RefundRequestModel = require('../models/RefundRequestModel');
 const CoinsModel = require('../models/CoinsModel');
+const BnplCardModel = require('../models/BnplCardModel');
+const BnplController = require('./BnplController');
 const paypal = require('../services/paypal');
 const { applyCoinsToOrder, creditCoins, getAppliedCoins, round2 } = require('../services/coinsHelper');
 const Stripe = require('stripe');
@@ -26,6 +28,8 @@ const STRIPE_SECRET =
   process.env.STRIPE_SECRET ||
   process.env['Stripe.apiKey'];
 const stripe = STRIPE_SECRET ? Stripe(STRIPE_SECRET) : null;
+
+const KYC_THRESHOLD = Number(process.env.KYC_THRESHOLD || 200);
 
 const validatePromo = (code, subtotal, callback) => {
   if (!code) return callback(null, null);
@@ -69,11 +73,25 @@ const computeTotals = (cart, promo) => {
 
 const buildBaseUrl = (req) => `${req.protocol}://${req.get('host')}`;
 
+const shouldRequireKyc = (userId, total, cb) => {
+  if (!Number.isFinite(Number(total)) || Number(total) < KYC_THRESHOLD) {
+    return cb(false);
+  }
+  const sql = 'SELECT kycStatus FROM users WHERE id = ? LIMIT 1';
+  db.query(sql, [userId], (err, rows) => {
+    if (err) return cb(false);
+    const status = rows && rows[0] ? rows[0].kycStatus : null;
+    return cb(status !== 'VERIFIED');
+  });
+};
+
 const OrderController = {
   checkoutForm(req, res) {
     const cart = req.session.cart || [];
     const user = req.session.user;
     if (!cart.length) return res.redirect('/shopping');
+    const bnplSelected = req.query.bnpl;
+    const bnplPlan = req.query.plan;
     const promoCode = req.session.promoCode || null;
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const renderPage = (promoApplied) => {
@@ -98,21 +116,31 @@ const OrderController = {
               Number(coinsBalance || 0),
               Number(totals.total || 0)
             );
-            res.render('checkout', {
-              cart,
-              subtotal: totals.subtotal,
-              discount: totals.promoAmount,
-              gst: totals.gst,
-              deliveryFee: totals.deliveryFee,
-              total: totals.total,
-              coinsApplied: applied,
-              coinsBalance: Number(coinsBalance || 0),
-              walletBalance: Number(walletBalance || 0),
-              gstRate: GST_RATE,
-              deliveryRate: DELIVERY_RATE,
-              user,
-              messages: req.flash('error'),
-              promoApplied
+            BnplCardModel.getByUserId(user.id, (bnplErr, bnplCard) => {
+              if (bnplErr) {
+                console.error('BNPL card error:', bnplErr);
+              }
+              res.render('checkout', {
+                cart,
+                subtotal: totals.subtotal,
+                discount: totals.promoAmount,
+                gst: totals.gst,
+                deliveryFee: totals.deliveryFee,
+                total: totals.total,
+                coinsApplied: applied,
+                coinsBalance: Number(coinsBalance || 0),
+                walletBalance: Number(walletBalance || 0),
+                gstRate: GST_RATE,
+                deliveryRate: DELIVERY_RATE,
+                user,
+                messages: req.flash('error'),
+                successMessages: req.flash('success'),
+                promoApplied,
+                bnplSelected,
+                bnplPlan,
+                bnplCard,
+                bnplPlanMonths: req.session.bnplPlanMonths
+              });
             });
           });
         });
@@ -146,7 +174,8 @@ const OrderController = {
     const user = req.session.user;
     const address = (req.body.address || '').trim();
     const paymentMethod = req.body.paymentMethod || 'card';
-    const bnplPlanMonths = Number(req.body.bnplPlan || 6);
+    const bnplPlanMonths = Number(req.body.bnplPlan || req.session.bnplPlanMonths || 6);
+    const bnplAutoPay = String(req.body.bnplAutoPay || '') === '1';
     const cardName = (req.body.cardName || '').trim();
     const cardNumberRaw = (req.body.cardNumber || '').replace(/\D/g, '');
     const cardLast4 = cardNumberRaw ? cardNumberRaw.slice(-4) : null;
@@ -205,7 +234,18 @@ const OrderController = {
 
         if (paymentMethod === 'bnpl') {
           req.session.toPayOrderId = resumeOrderId;
-          return req.session.save(() => res.redirect(`/bnpl/card?plan=${bnplPlanMonths}`));
+          req.session.bnplPlanMonths = bnplPlanMonths;
+          return BnplCardModel.getByUserId(user.id, (bnplErr, bnplCard) => {
+            if (bnplErr) {
+              console.error('BNPL card error:', bnplErr);
+            }
+            if (bnplAutoPay && bnplCard) {
+              return req.session.save(() => {
+                BnplController._finalizeBnplCheckout(req, res, bnplPlanMonths, null, () => res.redirect('/invoice/session'));
+              });
+            }
+            return req.session.save(() => res.redirect(`/bnpl/card?plan=${bnplPlanMonths}`));
+          });
         }
         if (paymentMethod === 'cash') {
           return completePayment(Number(existingOrder.total));
@@ -235,70 +275,88 @@ const OrderController = {
 
     const finalizeOrder = (promoApplied) => {
       const totals = computeTotals(cart, promoApplied);
-      const orderData = { userId: user.id, total: totals.total, address: address || null };
-
-      Order.create(orderData, cart, (err, result) => {
-        if (err) {
-          console.error('Error creating order:', err);
-          req.flash('error', err.message || 'Could not place order, please try again.');
-          return res.redirect('/checkout');
-        }
-        const completePayment = (netAmount) => {
-          const paymentLabel = paymentMethod === 'cash' ? 'Cash on Delivery' : 'Card';
-          const transactionData = {
-            orderId: result.orderId,
-            method: paymentMethod === 'cash' ? 'COD' : 'CARD',
-            status: paymentMethod === 'cash' ? 'PENDING' : 'COMPLETED',
-            reference: paymentMethod === 'cash' ? 'CASH_ON_DELIVERY' : (cardLast4 ? `CARD_${cardLast4}` : null),
-            amount: netAmount
-          };
-
-          Transaction.create(transactionData, (txnErr) => {
-            if (txnErr) {
-              console.error('Error creating transaction:', txnErr);
-            }
-            const desiredStatus = paymentMethod === 'cash' ? 'TO_PAY' : 'TO_SHIP';
-            Order.updateStatus(result.orderId, desiredStatus, (statusErr) => {
-              if (statusErr) {
-                console.error('Error updating order status:', statusErr);
-              }
-              if (paymentMethod !== 'cash') {
-                creditCoins(user.id, netAmount, () => {});
-              }
-              req.session.orderPayments = req.session.orderPayments || {};
-              req.session.orderPayments[result.orderId] = {
-                method: paymentLabel,
-                cardName: cardName || null,
-                cardLast4: paymentMethod === 'card' ? cardLast4 : null,
-                promo: promoApplied ? { code: promoApplied.code, amount: promoApplied.amount } : null
-              };
-              req.session.cart = [];
-              req.session.promoCode = null;
-              req.session.promoAmount = null;
-              req.session.coinsApplied = 0;
-              return res.redirect(`/orders/${result.orderId}`);
-            });
-          });
-        };
-
-        if (paymentMethod === 'bnpl') {
-          Order.updateStatus(result.orderId, 'TO_PAY', () => {
-            req.session.toPayOrderId = result.orderId;
-            req.session.lastOrderId = result.orderId;
-            req.session.save(() => res.redirect(`/bnpl/card?plan=${bnplPlanMonths}`));
-          });
-          return;
-        }
-        if (paymentMethod === 'cash') {
-          return completePayment(totals.total);
+      shouldRequireKyc(user.id, totals.total, (requiresKyc) => {
+        if (requiresKyc) {
+          req.flash('error', 'KYC required for high-value trades.');
+          return res.redirect('/kyc');
         }
 
-        applyCoinsToOrder(req, user.id, result.orderId, totals.total, (coinsErr, netAmount) => {
-          if (coinsErr) {
-            req.flash('error', coinsErr.message || 'Failed to apply coins');
+        const orderData = { userId: user.id, total: totals.total, address: address || null };
+
+        Order.create(orderData, cart, (err, result) => {
+          if (err) {
+            console.error('Error creating order:', err);
+            req.flash('error', err.message || 'Could not place order, please try again.');
             return res.redirect('/checkout');
           }
-          return completePayment(netAmount);
+          const completePayment = (netAmount) => {
+            const paymentLabel = paymentMethod === 'cash' ? 'Cash on Delivery' : 'Card';
+            const transactionData = {
+              orderId: result.orderId,
+              method: paymentMethod === 'cash' ? 'COD' : 'CARD',
+              status: paymentMethod === 'cash' ? 'PENDING' : 'COMPLETED',
+              reference: paymentMethod === 'cash' ? 'CASH_ON_DELIVERY' : (cardLast4 ? `CARD_${cardLast4}` : null),
+              amount: netAmount
+            };
+
+            Transaction.create(transactionData, (txnErr) => {
+              if (txnErr) {
+                console.error('Error creating transaction:', txnErr);
+              }
+              const desiredStatus = paymentMethod === 'cash' ? 'TO_PAY' : 'TO_SHIP';
+              Order.updateStatus(result.orderId, desiredStatus, (statusErr) => {
+                if (statusErr) {
+                  console.error('Error updating order status:', statusErr);
+                }
+                if (paymentMethod !== 'cash') {
+                  creditCoins(user.id, netAmount, () => {});
+                }
+                req.session.orderPayments = req.session.orderPayments || {};
+                req.session.orderPayments[result.orderId] = {
+                  method: paymentLabel,
+                  cardName: cardName || null,
+                  cardLast4: paymentMethod === 'card' ? cardLast4 : null,
+                  promo: promoApplied ? { code: promoApplied.code, amount: promoApplied.amount } : null
+                };
+                req.session.cart = [];
+                req.session.promoCode = null;
+                req.session.promoAmount = null;
+                req.session.coinsApplied = 0;
+                return res.redirect(`/orders/${result.orderId}`);
+              });
+            });
+          };
+
+          if (paymentMethod === 'bnpl') {
+            Order.updateStatus(result.orderId, 'TO_PAY', () => {
+              req.session.toPayOrderId = result.orderId;
+              req.session.lastOrderId = result.orderId;
+              req.session.bnplPlanMonths = bnplPlanMonths;
+              BnplCardModel.getByUserId(user.id, (bnplErr, bnplCard) => {
+                if (bnplErr) {
+                  console.error('BNPL card error:', bnplErr);
+                }
+                if (bnplAutoPay && bnplCard) {
+                  return req.session.save(() => {
+                    BnplController._finalizeBnplCheckout(req, res, bnplPlanMonths, null, () => res.redirect('/invoice/session'));
+                  });
+                }
+                return req.session.save(() => res.redirect(`/bnpl/card?plan=${bnplPlanMonths}`));
+              });
+            });
+            return;
+          }
+          if (paymentMethod === 'cash') {
+            return completePayment(totals.total);
+          }
+
+          applyCoinsToOrder(req, user.id, result.orderId, totals.total, (coinsErr, netAmount) => {
+            if (coinsErr) {
+              req.flash('error', coinsErr.message || 'Failed to apply coins');
+              return res.redirect('/checkout');
+            }
+            return completePayment(netAmount);
+          });
         });
       });
     };
@@ -387,52 +445,59 @@ const OrderController = {
 
     const finalize = (promoApplied) => {
       const totals = computeTotals(cart, promoApplied);
-      const orderData = { userId: user.id, total: totals.total, address: address || null };
-
-      Order.create(orderData, cart, (err, result) => {
-        if (err) {
-          console.error('Error creating wallet order:', err);
-          req.flash('error', err.message || 'Could not place order, please try again.');
-          return res.redirect('/checkout');
+      shouldRequireKyc(user.id, totals.total, (requiresKyc) => {
+        if (requiresKyc) {
+          req.flash('error', 'KYC required for high-value trades.');
+          return res.redirect('/kyc');
         }
 
-        applyCoinsToOrder(req, user.id, result.orderId, totals.total, (coinsErr, netAmount) => {
-          if (coinsErr) {
-            req.flash('error', coinsErr.message || 'Failed to apply coins');
+        const orderData = { userId: user.id, total: totals.total, address: address || null };
+
+        Order.create(orderData, cart, (err, result) => {
+          if (err) {
+            console.error('Error creating wallet order:', err);
+            req.flash('error', err.message || 'Could not place order, please try again.');
             return res.redirect('/checkout');
           }
 
-          WalletModel.debit(user.id, netAmount, `ORDER_${result.orderId}`, (walletErr) => {
-            if (walletErr) {
-              req.flash('error', walletErr.message || 'Insufficient PokeVault Pay balance.');
+          applyCoinsToOrder(req, user.id, result.orderId, totals.total, (coinsErr, netAmount) => {
+            if (coinsErr) {
+              req.flash('error', coinsErr.message || 'Failed to apply coins');
               return res.redirect('/checkout');
             }
 
-            Order.updateStatus(result.orderId, 'TO_SHIP', (statusErr) => {
-              if (statusErr) {
-                console.error('Error updating order status:', statusErr);
+            WalletModel.debit(user.id, netAmount, `ORDER_${result.orderId}`, (walletErr) => {
+              if (walletErr) {
+                req.flash('error', walletErr.message || 'Insufficient PokeVault Pay balance.');
+                return res.redirect('/checkout');
               }
 
-              Transaction.create({
-                orderId: result.orderId,
-                method: 'WALLET',
-                status: 'COMPLETED',
-                reference: 'POKEVAULT_PAY',
-                amount: netAmount
-              }, () => {
-                creditCoins(user.id, netAmount, () => {});
-                req.session.orderPayments = req.session.orderPayments || {};
-                req.session.orderPayments[result.orderId] = {
-                  method: 'PokeVault Pay',
-                  promo: promoApplied ? { code: promoApplied.code, amount: promoApplied.amount } : null
-                };
-                req.session.cart = [];
-                req.session.promoCode = null;
-                req.session.promoAmount = null;
-                req.session.coinsApplied = 0;
-                req.session.toPayOrderId = null;
-                req.session.lastOrderId = result.orderId;
-                req.session.save(() => res.redirect(`/orders/${result.orderId}`));
+              Order.updateStatus(result.orderId, 'TO_SHIP', (statusErr) => {
+                if (statusErr) {
+                  console.error('Error updating order status:', statusErr);
+                }
+
+                Transaction.create({
+                  orderId: result.orderId,
+                  method: 'WALLET',
+                  status: 'COMPLETED',
+                  reference: 'POKEVAULT_PAY',
+                  amount: netAmount
+                }, () => {
+                  creditCoins(user.id, netAmount, () => {});
+                  req.session.orderPayments = req.session.orderPayments || {};
+                  req.session.orderPayments[result.orderId] = {
+                    method: 'PokeVault Pay',
+                    promo: promoApplied ? { code: promoApplied.code, amount: promoApplied.amount } : null
+                  };
+                  req.session.cart = [];
+                  req.session.promoCode = null;
+                  req.session.promoAmount = null;
+                  req.session.coinsApplied = 0;
+                  req.session.toPayOrderId = null;
+                  req.session.lastOrderId = result.orderId;
+                  req.session.save(() => res.redirect(`/orders/${result.orderId}`));
+                });
               });
             });
           });
@@ -469,13 +534,18 @@ const OrderController = {
       if (req.session.toPayOrderId) return done(req.session.toPayOrderId);
 
       const totals = computeTotals(cart, promoApplied);
-      const orderData = { userId: user.id, total: totals.total, address: (req.body.address || '').trim() || null };
+      return shouldRequireKyc(user.id, totals.total, (requiresKyc) => {
+        if (requiresKyc) {
+          return res.status(403).json({ error: 'KYC required for high-value trades.', redirectUrl: '/kyc' });
+        }
+        const orderData = { userId: user.id, total: totals.total, address: (req.body.address || '').trim() || null };
 
-      Order.create(orderData, cart, (err, result) => {
-        if (err) return res.status(500).json({ error: 'Failed to create order' });
-        Order.updateStatus(result.orderId, 'TO_PAY', () => {
-          req.session.toPayOrderId = result.orderId;
-          req.session.save(() => done(result.orderId));
+        Order.create(orderData, cart, (err, result) => {
+          if (err) return res.status(500).json({ error: 'Failed to create order' });
+          Order.updateStatus(result.orderId, 'TO_PAY', () => {
+            req.session.toPayOrderId = result.orderId;
+            req.session.save(() => done(result.orderId));
+          });
         });
       });
     };
@@ -579,12 +649,17 @@ const OrderController = {
         return done(req.session.toPayOrderId, totals);
       }
 
-      const orderData = { userId: user.id, total: totals.total, address: address || null };
-      Order.create(orderData, cart, (err, result) => {
-        if (err) return res.status(500).json({ error: 'Failed to create order' });
-        Order.updateStatus(result.orderId, 'TO_PAY', () => {
-          req.session.toPayOrderId = result.orderId;
-          req.session.save(() => done(result.orderId, totals));
+      return shouldRequireKyc(user.id, totals.total, (requiresKyc) => {
+        if (requiresKyc) {
+          return res.status(403).json({ error: 'KYC required for high-value trades.', redirectUrl: '/kyc' });
+        }
+        const orderData = { userId: user.id, total: totals.total, address: address || null };
+        Order.create(orderData, cart, (err, result) => {
+          if (err) return res.status(500).json({ error: 'Failed to create order' });
+          Order.updateStatus(result.orderId, 'TO_PAY', () => {
+            req.session.toPayOrderId = result.orderId;
+            req.session.save(() => done(result.orderId, totals));
+          });
         });
       });
     };
@@ -698,12 +773,17 @@ const OrderController = {
         return done(req.session.toPayOrderId, totals, promoApplied);
       }
 
-      const orderData = { userId: user.id, total: totals.total, address: address || null };
-      Order.create(orderData, cart, (err, result) => {
-        if (err) return res.status(500).json({ error: 'Failed to create order' });
-        Order.updateStatus(result.orderId, 'TO_PAY', () => {
-          req.session.toPayOrderId = result.orderId;
-          req.session.save(() => done(result.orderId, totals, promoApplied));
+      return shouldRequireKyc(user.id, totals.total, (requiresKyc) => {
+        if (requiresKyc) {
+          return res.status(403).json({ error: 'KYC required for high-value trades.', redirectUrl: '/kyc' });
+        }
+        const orderData = { userId: user.id, total: totals.total, address: address || null };
+        Order.create(orderData, cart, (err, result) => {
+          if (err) return res.status(500).json({ error: 'Failed to create order' });
+          Order.updateStatus(result.orderId, 'TO_PAY', () => {
+            req.session.toPayOrderId = result.orderId;
+            req.session.save(() => done(result.orderId, totals, promoApplied));
+          });
         });
       });
     };

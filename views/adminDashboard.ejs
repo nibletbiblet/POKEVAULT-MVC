@@ -28,7 +28,19 @@
     .card-frosted { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 1rem; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 18px 48px rgba(0,0,0,0.55); padding: 1.25rem; }
     .stat-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 0.85rem; padding: 1rem; box-shadow: 0 14px 32px rgba(0,0,0,0.45); }
     .stat-title { color: rgba(255,255,255,0.7); letter-spacing: 0.02em; font-size: 0.85rem; text-transform: uppercase; font-weight: 700; }
-    .stat-value { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.01em; color: #fff; }
+    .stat-value { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.01em; color: #fff; font-variant-numeric: tabular-nums; }
+    .stat-card.primary { border-color: rgba(125,243,212,0.28); box-shadow: 0 20px 46px rgba(0,0,0,0.58); }
+    .stat-value.primary { font-size: 2.2rem; font-variant-numeric: tabular-nums; }
+    .stat-subtle { color: rgba(255,255,255,0.6); font-size: 0.8rem; }
+    .delta { font-size: 0.82rem; font-weight: 700; letter-spacing: 0.01em; }
+    .delta-pos { color: #79f6cd; }
+    .delta-neg { color: #ff8f8f; }
+    .delta-na { color: rgba(255,255,255,0.55); }
+    .section-kpi-label { color: rgba(255,255,255,0.62); font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700; }
+    .range-pill { display: inline-flex; align-items: center; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); color: #fff; border-radius: 999px; padding: 0.28rem 0.74rem; font-weight: 700; font-size: 0.78rem; letter-spacing: 0.02em; }
+    .action-menu .dropdown-menu { background: rgba(9, 23, 45, 0.97); border: 1px solid rgba(255,255,255,0.1); min-width: 14rem; }
+    .action-menu .dropdown-item { color: rgba(255,255,255,0.92); }
+    .action-menu .dropdown-item:hover, .action-menu .dropdown-item:focus { background: rgba(255,255,255,0.08); color: #fff; }
     .pill { display: inline-flex; align-items: center; gap: 0.35rem; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #fff; border-radius: 999px; padding: 0.3rem 0.75rem; font-weight: 700; }
 
     .table-dark th, .table-dark td { border-color: rgba(255,255,255,0.08); }
@@ -85,15 +97,34 @@
         const sign = pct > 0 ? '+' : '';
         return `${sign}${(pct * 100).toFixed(1)}%`;
       }
+      function formatDeltaUi(pct) {
+        if (pct === null || pct === undefined) return 'N/A';
+        const value = Math.abs(pct * 100).toFixed(1);
+        if (pct > 0) return `▲ ${value}%`;
+        if (pct < 0) return `▼ ${value}%`;
+        return 'N/A';
+      }
+      function formatDeltaClass(pct) {
+        if (pct === null || pct === undefined) return 'delta-na';
+        if (pct > 0) return 'delta-pos';
+        if (pct < 0) return 'delta-neg';
+        return 'delta-na';
+      }
       function formatPercent(value) {
         if (value === null || value === undefined) return '—';
         return `${(Number(value) * 100).toFixed(1)}%`;
+      }
+      function formatCount(value) {
+        if (value === null || value === undefined) return '—';
+        const num = Number(value || 0);
+        return Number.isFinite(num) ? `${Math.trunc(num)}` : '—';
       }
     %>
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
       <div>
         <h4 class="fw-bold mb-1">Admin Dashboard</h4>
         <small class="text-white-50">Key business metrics at a glance.</small>
+        <div class="mt-2"><span class="range-pill">Range: <%= stats.rangeLabel %></span></div>
       </div>
       <div class="d-flex flex-wrap gap-2 align-items-center">
         <div class="btn-group me-2" role="group" aria-label="Time range">
@@ -108,65 +139,76 @@
             <a class="btn btn-outline-light btn-sm <%= stats.rangeKey === opt.key ? 'active' : '' %>" href="/admin/dashboard?range=<%= opt.key %>"><%= opt.label %></a>
           <% }) %>
         </div>
-        <a class="btn btn-outline-light btn-sm" href="/inventory">Manage Inventory</a>
-        <a class="btn btn-outline-light btn-sm" href="/admin/orders-status">Manage Status</a>
-        <a class="btn btn-outline-light btn-sm" href="/admin/users">Manage Users</a>
-        <a class="btn btn-outline-light btn-sm" href="/admin/trades">View Trades</a>
+        <div class="dropdown action-menu">
+          <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Admin Actions</button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="/inventory">Manage Inventory</a></li>
+            <li><a class="dropdown-item" href="/admin/orders-status">Manage Status</a></li>
+            <li><a class="dropdown-item" href="/admin/users">Manage Users</a></li>
+            <li><a class="dropdown-item" href="/admin/trades">View Trades</a></li>
+            <li><a class="dropdown-item" href="/admin/kyc">KYC Review</a></li>
+          </ul>
+        </div>
       </div>
     </div>
 
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="section-kpi-label">Primary Outcomes</div>
+      <small class="text-white-50">Deltas vs <%= stats.prevLabel || 'previous period' %></small>
+    </div>
     <div class="row g-3 mb-4">
       <div class="col-12 col-md-6 col-lg-3">
-        <div class="stat-card">
-          <div class="stat-title">Net Sales (<%= stats.rangeLabel %>)</div>
-          <div class="stat-value">$<%= formatMoney(stats.netSales) %></div>
-          <div class="text-white-50 small">vs <%= stats.prevLabel || 'previous period' %>: <%= formatDelta(stats.deltas.netSales) %></div>
-          <div class="text-white-50 small">All-time net: $<%= formatMoney(stats.allTimeNetSales) %></div>
+        <div class="stat-card primary">
+          <div class="stat-title" title="Net sales reflect total revenue after approved refunds.">Net Sales</div>
+          <div class="stat-value primary">$<%= formatMoney(stats.netSales) %></div>
+          <div class="delta <%= formatDeltaClass(stats.deltas.netSales) %>"><%= formatDeltaUi(stats.deltas.netSales) %></div>
+          <div class="stat-subtle">All-time: $<%= formatMoney(stats.allTimeNetSales) %></div>
         </div>
       </div>
       <div class="col-12 col-md-6 col-lg-3">
-        <div class="stat-card">
-          <div class="stat-title">Orders (<%= stats.rangeLabel %>)</div>
-          <div class="stat-value"><%= stats.totalOrders %></div>
-          <div class="text-white-50 small">vs <%= stats.prevLabel || 'previous period' %>: <%= formatDelta(stats.deltas.orders) %></div>
+        <div class="stat-card primary">
+          <div class="stat-title">Orders</div>
+          <div class="stat-value primary"><%= stats.totalOrders %></div>
+          <div class="delta <%= formatDeltaClass(stats.deltas.orders) %>"><%= formatDeltaUi(stats.deltas.orders) %></div>
         </div>
       </div>
       <div class="col-12 col-md-6 col-lg-3">
-        <div class="stat-card">
-          <div class="stat-title">New Users (<%= stats.rangeLabel %>)</div>
-          <div class="stat-value"><%= stats.totalUsers %></div>
-          <div class="text-white-50 small">vs <%= stats.prevLabel || 'previous period' %>: <%= formatDelta(stats.deltas.users) %></div>
+        <div class="stat-card primary">
+          <div class="stat-title">New Users</div>
+          <div class="stat-value primary"><%= stats.totalUsers %></div>
+          <div class="delta <%= formatDeltaClass(stats.deltas.users) %>"><%= formatDeltaUi(stats.deltas.users) %></div>
         </div>
       </div>
       <div class="col-12 col-md-6 col-lg-3">
-        <div class="stat-card">
-          <div class="stat-title">Trades (<%= stats.rangeLabel %>)</div>
-          <div class="stat-value"><%= stats.totalTrades || 0 %></div>
-          <div class="text-white-50 small">vs <%= stats.prevLabel || 'previous period' %>: <%= formatDelta(stats.deltas.trades) %></div>
+        <div class="stat-card primary">
+          <div class="stat-title">Trades</div>
+          <div class="stat-value primary"><%= stats.totalTrades || 0 %></div>
+          <div class="delta <%= formatDeltaClass(stats.deltas.trades) %>"><%= formatDeltaUi(stats.deltas.trades) %></div>
         </div>
       </div>
     </div>
 
+    <div class="section-kpi-label mb-2">Revenue Breakdown</div>
     <div class="row g-3 mb-4">
       <div class="col-12 col-md-6 col-lg-4">
         <div class="stat-card">
           <div class="stat-title">Gross Sales</div>
           <div class="stat-value">$<%= formatMoney(stats.grossSales) %></div>
-          <div class="text-white-50 small">vs <%= stats.prevLabel || 'previous period' %>: <%= formatDelta(stats.deltas.grossSales) %></div>
+          <div class="delta <%= formatDeltaClass(stats.deltas.grossSales) %>"><%= formatDeltaUi(stats.deltas.grossSales) %></div>
         </div>
       </div>
       <div class="col-12 col-md-6 col-lg-4">
         <div class="stat-card">
           <div class="stat-title">Refunded Amount</div>
           <div class="stat-value">$<%= formatMoney(stats.refundedAmount) %></div>
-          <div class="text-white-50 small">vs <%= stats.prevLabel || 'previous period' %>: <%= formatDelta(stats.deltas.refundedAmount) %></div>
+          <div class="delta <%= formatDeltaClass(stats.deltas.refundedAmount) %>"><%= formatDeltaUi(stats.deltas.refundedAmount) %></div>
         </div>
       </div>
       <div class="col-12 col-md-6 col-lg-4">
         <div class="stat-card">
           <div class="stat-title">Average Order Value</div>
           <div class="stat-value">$<%= formatMoney(stats.ratios.aov) %></div>
-          <div class="text-white-50 small">Net sales / orders</div>
+          <div class="stat-subtle">Net sales / orders</div>
         </div>
       </div>
     </div>
@@ -176,14 +218,51 @@
         <div class="stat-card h-100">
           <div class="stat-title">Refund Rate</div>
           <div class="stat-value"><%= formatPercent(stats.ratios.refundRate) %></div>
-          <div class="text-white-50 small">Refunded amount / gross sales</div>
+          <div class="stat-subtle">Refunded amount / gross sales</div>
         </div>
       </div>
-      <div class="col-12 col-lg-6">
-        <div class="stat-card h-100">
-          <div class="stat-title">Net Sales Note</div>
-          <div class="stat-value">$<%= formatMoney(stats.netSales) %></div>
-          <div class="text-white-50 small">Net sales reflect total revenue after approved refunds.</div>
+    </div>
+
+    <div class="card-frosted mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h6 class="text-white-50 text-uppercase mb-0">Compliance Alerts</h6>
+          <small class="text-white-50">Read-only flags</small>
+        </div>
+        <span class="pill"><%= (stats.compliance && stats.compliance.windowLabel) ? stats.compliance.windowLabel : 'All time' %></span>
+      </div>
+      <div class="row g-3">
+        <div class="col-12 col-md-6 col-lg-3">
+          <div class="stat-card h-100">
+            <div class="stat-title">Incomplete KYC</div>
+            <div class="stat-value"><%= formatCount(stats.compliance && stats.compliance.incompleteKyc) %></div>
+            <div class="text-white-50 small">NOT_STARTED / PENDING / REJECTED</div>
+            <a class="btn btn-outline-light btn-sm mt-2" href="/admin/users?kyc=incomplete">View Users</a>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+          <div class="stat-card h-100">
+            <div class="stat-title">High Refund Rate</div>
+            <div class="stat-value"><%= formatCount(stats.compliance && stats.compliance.highRefundRateUsers) %></div>
+            <div class="text-white-50 small">Refund rate ≥ <%= Math.round(((stats.compliance && stats.compliance.thresholds && stats.compliance.thresholds.refundRate) ? stats.compliance.thresholds.refundRate : 0.5) * 100) %>%</div>
+            <a class="btn btn-outline-light btn-sm mt-2" href="/admin/users?refundRate=<%= (stats.compliance && stats.compliance.thresholds) ? stats.compliance.thresholds.refundRate : 0.5 %>">View Users</a>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+          <div class="stat-card h-100">
+            <div class="stat-title">High Value Without KYC</div>
+            <div class="stat-value"><%= formatCount(stats.compliance && stats.compliance.highValueNoKycOrders) %></div>
+            <div class="text-white-50 small">Orders ≥ $<%= formatMoney((stats.compliance && stats.compliance.thresholds) ? stats.compliance.thresholds.highValue : 0) %></div>
+            <a class="btn btn-outline-light btn-sm mt-2" href="/admin/users?highValueNoKyc=1">View Users</a>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+          <div class="stat-card h-100">
+            <div class="stat-title">Velocity Orders</div>
+            <div class="stat-value"><%= formatCount(stats.compliance && stats.compliance.velocityUsers) %></div>
+            <div class="text-white-50 small">≥ <%= (stats.compliance && stats.compliance.thresholds) ? stats.compliance.thresholds.velocityCount : 3 %> orders in <%= (stats.compliance && stats.compliance.thresholds) ? stats.compliance.thresholds.velocityMinutes : 10 %> min</div>
+            <a class="btn btn-outline-light btn-sm mt-2" href="/admin/users?velocity=1">View Users</a>
+          </div>
         </div>
       </div>
     </div>
@@ -194,10 +273,14 @@
           <h6 class="text-white-50 text-uppercase mb-0">Performance Trend</h6>
           <small class="text-white-50"><%= stats.rangeLabel %> vs <%= stats.prevLabel || 'previous period' %></small>
         </div>
-        <div class="btn-group btn-group-sm" role="group" aria-label="Chart metric toggle">
-          <button class="btn btn-outline-light active" type="button" data-metric="net_sales">Net Sales</button>
-          <button class="btn btn-outline-light" type="button" data-metric="orders">Orders</button>
-          <button class="btn btn-outline-light" type="button" data-metric="refunds">Refunds</button>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-outline-light btn-sm exportChartBtn" data-url="/admin/dashboard.csv?range=<%= stats.rangeKey %>">Export CSV</button>
+          <button type="button" class="btn btn-outline-light btn-sm exportChartBtn" data-url="/admin/dashboard.xlsx?range=<%= stats.rangeKey %>">Export Excel</button>
+          <div class="btn-group btn-group-sm" role="group" aria-label="Chart metric toggle">
+            <button class="btn btn-outline-light active" type="button" data-metric="net_sales">Net Sales</button>
+            <button class="btn btn-outline-light" type="button" data-metric="orders">Orders</button>
+            <button class="btn btn-outline-light" type="button" data-metric="refunds">Refunds</button>
+          </div>
         </div>
       </div>
       <% if (stats.chart && stats.chart.groupByLabel) { %>
@@ -356,6 +439,64 @@
         if (!label) return;
         window.location.href = `/admin/reports/day?date=${encodeURIComponent(label)}`;
       };
+    })();
+  </script>
+  <div class="modal fade" id="adminKeyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content bg-dark text-white">
+        <div class="modal-header border-0">
+          <h5 class="modal-title">Admin Authority Confirmation</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">Please enter admin key to confirm this action.</p>
+          <input type="password" id="adminKeyInput" class="form-control" placeholder="Admin key">
+          <div id="adminKeyError" class="text-danger small mt-2"></div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-light btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger btn-sm" id="adminKeyConfirm">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      const exportBtns = Array.from(document.querySelectorAll('.exportChartBtn'));
+      const keyModal = document.getElementById('adminKeyModal');
+      const keyInput = document.getElementById('adminKeyInput');
+      const keyError = document.getElementById('adminKeyError');
+      const confirmBtn = document.getElementById('adminKeyConfirm');
+      const bootstrapModal = keyModal ? new bootstrap.Modal(keyModal) : null;
+      let pendingExportUrl = '';
+
+      if (!exportBtns.length) return;
+      exportBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          pendingExportUrl = btn.dataset.url || '';
+          if (keyError) keyError.textContent = '';
+          if (keyInput) keyInput.value = '';
+          if (bootstrapModal) bootstrapModal.show();
+        });
+      });
+
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => {
+          if (!pendingExportUrl) {
+            if (keyError) keyError.textContent = 'No export target selected.';
+            return;
+          }
+          const adminKey = keyInput ? keyInput.value.trim() : '';
+          if (!adminKey) {
+            if (keyError) keyError.textContent = 'Admin key is required.';
+            return;
+          }
+          if (!confirm('Are you sure you want to proceed? This action cannot be undone.')) return;
+          const baseUrl = pendingExportUrl;
+          const sep = baseUrl.includes('?') ? '&' : '?';
+          window.location.href = `${baseUrl}${sep}adminKey=${encodeURIComponent(adminKey)}`;
+        });
+      }
     })();
   </script>
 

@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="/theme.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <title>SPokeVault - Inventory</title>
+  <title>PokeVault - Inventory</title>
   <style>
     /* Keep layout consistent with index.ejs */
     body {
@@ -339,8 +339,8 @@ background-size: cover;
           <select id="sortSelect" class="form-select form-select-sm filter-select" aria-label="Sort products">
             <option value="">Sort: Recommended</option>
             <option value="price-asc">Price: Ascending</option>
-            <option value="price-desc">Price: Decending</option>
-            <option value="rating-desc">Rating: Decending</option>
+            <option value="price-desc">Price: Descending</option>
+            <option value="rating-desc">Rating: Descending</option>
             <option value="rating-asc">Rating: Ascending</option>
             <option value="best">Best Selling</option>
           </select>
@@ -395,10 +395,26 @@ background-size: cover;
                   <span class="text-uppercase fw-semibold text-white-50 small">Quantity</span>
                   <span class="badge-quantity <%= (isLow || isOut) ? 'low' : '' %>"><%= stock %></span>
                 </div>
+                <div class="small text-white-50 mb-2">
+                  Listing: <strong><%= products[i].listingStatus || 'APPROVED' %></strong>
+                  <span class="ms-2">Authenticity: <strong><%= products[i].authenticityStatus || 'VERIFIED' %></strong></span>
+                </div>
                 <div class="card-actions mt-auto d-flex gap-2">
                   <a class="btn btn-outline-light btn-sm" href="/updateProduct/<%= products[i].id %>">Edit</a>
                   <a class="btn btn-danger btn-sm fw-semibold shadow-sm delete-product" href="/deleteProduct/<%= products[i].id %>" data-name="<%= products[i].productName %>" data-id="<%= products[i].id %>">Delete</a>
                 </div>
+                <% if (user && user.role === 'admin') { %>
+                  <div class="d-grid gap-2 mt-2">
+                    <form method="POST" action="/admin/products/<%= products[i].id %>/listing-status" class="d-flex gap-2">
+                      <input type="hidden" name="status" value="APPROVED">
+                      <button type="submit" class="btn btn-outline-success btn-sm w-100">Approve Listing</button>
+                    </form>
+                    <form method="POST" action="/admin/products/<%= products[i].id %>/authenticity-status" class="d-flex gap-2">
+                      <input type="hidden" name="status" value="VERIFIED">
+                      <button type="submit" class="btn btn-outline-info btn-sm w-100">Verify Authenticity</button>
+                    </form>
+                  </div>
+                <% } %>
               </article>
             </div>
           <% } %>

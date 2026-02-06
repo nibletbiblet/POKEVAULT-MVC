@@ -59,7 +59,7 @@ const UserController = {
     let existingUsers = [];
     try {
       existingUsers = await new Promise((resolve, reject) => {
-        db.query('SELECT id FROM users WHERE email = ? LIMIT 1', [email], (err, rows) => {
+        db.query('SELECT id FROM users WHERE email = ? AND (isDeleted = 0 OR isDeleted IS NULL) LIMIT 1', [email], (err, rows) => {
           if (err) return reject(err);
           resolve(rows || []);
         });
@@ -158,7 +158,7 @@ const UserController = {
 
     try {
       const existingUsers = await new Promise((resolve, reject) => {
-        db.query('SELECT id FROM users WHERE email = ? LIMIT 1', [pending.email], (err, rows) => {
+        db.query('SELECT id FROM users WHERE email = ? AND (isDeleted = 0 OR isDeleted IS NULL) LIMIT 1', [pending.email], (err, rows) => {
           if (err) return reject(err);
           resolve(rows || []);
         });
@@ -249,7 +249,7 @@ const UserController = {
       return res.redirect('/login');
     }
 
-    const sql = 'SELECT * FROM users WHERE email = ? LIMIT 1';
+    const sql = 'SELECT * FROM users WHERE email = ? AND (isDeleted = 0 OR isDeleted IS NULL) LIMIT 1';
     db.query(sql, [email], async (err, results) => {
       if (err) {
         console.error('Error logging in:', err);
@@ -292,6 +292,49 @@ const UserController = {
 
   logout(req, res) {
     req.session.destroy(() => res.redirect('/'));
+  },
+
+  kycForm(req, res) {
+    const user = req.session.user;
+    const status = user && user.kycStatus ? user.kycStatus : 'NOT_STARTED';
+    res.render('kyc', {
+      user,
+      status,
+      messages: req.flash('error'),
+      success: req.flash('success')
+    });
+  },
+
+  kycSubmit(req, res) {
+    const db = require('../db');
+    const user = req.session.user;
+    const fullName = (req.body.fullName || '').trim();
+    const idLast4 = (req.body.idLast4 || '').trim();
+    const docType = (req.body.docType || '').trim();
+
+    if (!fullName || !idLast4 || !docType) {
+      req.flash('error', 'Please complete all KYC fields.');
+      return res.redirect('/kyc');
+    }
+
+    const sql = `
+      UPDATE users
+      SET kycStatus = 'PENDING',
+          kycUpdatedAt = NOW(),
+          kycReviewedBy = NULL,
+          kycRejectionReason = NULL
+      WHERE id = ?
+    `;
+    db.query(sql, [user.id], (err) => {
+      if (err) {
+        console.error('Error submitting KYC:', err);
+        req.flash('error', 'Could not submit KYC. Please try again.');
+        return res.redirect('/kyc');
+      }
+      req.session.user.kycStatus = 'PENDING';
+      req.flash('success', 'KYC submitted and pending review.');
+      return res.redirect('/kyc');
+    });
   }
 };
 
