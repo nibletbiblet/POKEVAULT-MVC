@@ -322,6 +322,116 @@
       color: rgba(255,255,255,0.75);
       margin-top: 0.15rem;
     }
+    .trade-board {
+      background: rgba(5, 10, 19, 0.64);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 1rem;
+      padding: 1rem;
+    }
+    .trade-board-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.7rem;
+      margin-bottom: 0.8rem;
+    }
+    .trade-tabs {
+      display: inline-flex;
+      gap: 0.4rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 0.25rem;
+      border-radius: 999px;
+      margin-bottom: 0.85rem;
+    }
+    .trade-tab-btn {
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: rgba(233,236,239,0.85);
+      font-weight: 600;
+      padding: 0.36rem 0.85rem;
+      font-size: 0.85rem;
+    }
+    .trade-tab-btn.active {
+      background: linear-gradient(90deg, rgba(15,176,255,0.35), rgba(74,212,255,0.35));
+      color: #fff;
+      box-shadow: 0 8px 20px rgba(15,176,255,0.22);
+    }
+    .trade-tab-btn:focus-visible, .trade-view-toggle:focus-visible {
+      outline: 2px solid rgba(74,212,255,0.7);
+      outline-offset: 2px;
+    }
+    .trade-section + .trade-section { margin-top: 0.9rem; }
+    .trade-section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    .trade-list { display: grid; gap: 0.7rem; }
+    .trade-item-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .trade-item-summary {
+      padding: 0.8rem 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+    }
+    .trade-item-main {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .trade-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.14);
+      object-fit: cover;
+      background: rgba(255,255,255,0.06);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.72);
+      font-size: 0.7rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .trade-name { font-weight: 700; line-height: 1.15; margin-bottom: 0.08rem; }
+    .trade-sub { font-size: 0.8rem; color: rgba(233,236,239,0.68); line-height: 1.25; }
+    .trade-item-side {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .trade-view-toggle {
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #fff;
+      background: rgba(255,255,255,0.05);
+      padding: 0.28rem 0.75rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .trade-item-panel {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding: 0.85rem 0.9rem 0.95rem;
+      background: rgba(0,0,0,0.16);
+    }
+    @media (max-width: 640px) {
+      .trade-item-summary { flex-direction: column; align-items: flex-start; }
+      .trade-item-side { width: 100%; justify-content: space-between; }
+    }
   </style>
 </head>
 <body class="theme-gradient d-flex flex-column min-vh-100">
@@ -373,6 +483,8 @@
     <% const myCount = myTrades.length; %>
     <% const pendingCount = myTrades.filter(t => t.status === 'pending_initiator' && t.initiator_id === user.id).length; %>
     <% const activeCount = myTrades.filter(t => t.status === 'open' || t.status === 'pending_initiator').length; %>
+    <% const activeTrades = myTrades.filter(t => t.status === 'open' || t.status === 'pending_initiator'); %>
+    <% const historyTrades = myTrades.filter(t => t.status === 'accepted' || t.status === 'declined' || t.status === 'cancelled'); %>
     <% if (errors && errors.length) { %>
       <div class="alert alert-danger">
         <% errors.forEach(err => { %>
@@ -512,6 +624,216 @@
         </div>
       </div>
 
+      <div class="col-12">
+        <div class="glass-card p-4">
+          <div class="trade-board">
+            <div class="trade-board-head">
+              <div>
+                <div class="text-uppercase text-white-50 small fw-semibold">Quick trade board</div>
+                <h5 class="mb-1 section-title">Manage trades without leaving this page</h5>
+                <div class="trade-sub">Active shows pending actions first. History keeps accepted, declined, and cancelled trades.</div>
+              </div>
+              <a class="btn btn-ghost btn-sm" href="/trade-chat">Open Trade Chat</a>
+            </div>
+
+            <div class="trade-tabs" role="tablist" aria-label="Trade board tabs">
+              <button type="button" class="trade-tab-btn active" role="tab" aria-selected="true" aria-controls="trade-board-active" id="trade-board-tab-active" data-tab-target="active">Active</button>
+              <button type="button" class="trade-tab-btn" role="tab" aria-selected="false" aria-controls="trade-board-history" id="trade-board-tab-history" data-tab-target="history">History</button>
+            </div>
+
+            <section id="trade-board-active" class="trade-panel" role="tabpanel" aria-labelledby="trade-board-tab-active" data-tab-panel="active">
+              <div class="trade-section">
+                <div class="trade-section-title">
+                  <h6 class="mb-0">Open trades from others</h6>
+                  <span class="badge text-bg-secondary"><%= openTrades.length %></span>
+                </div>
+                <% if (!openTrades.length) { %>
+                  <p class="text-white-50 mb-0">No open trades right now.</p>
+                <% } else { %>
+                  <div class="trade-list trade-sort-list">
+                    <% openTrades.forEach(t => { %>
+                      <% const cardName = t.initiator_card_name || t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
+                      <% const panelId = `trade-board-open-${t.id}`; %>
+                      <% const thumbSrc = t.initiator_card_image ? `/uploads/${t.initiator_card_image}` : ''; %>
+                      <article class="trade-item-card" data-needs-action="1" data-last-updated="<%= new Date(t.updated_at || t.created_at).getTime() || 0 %>">
+                        <div class="trade-item-summary">
+                          <div class="trade-item-main">
+                            <% if (thumbSrc) { %>
+                              <img class="trade-thumb" src="<%= thumbSrc %>" alt="<%= cardName %> thumbnail">
+                            <% } else { %>
+                              <div class="trade-thumb" aria-hidden="true">TCG</div>
+                            <% } %>
+                            <div>
+                              <div class="trade-name"><%= cardName %></div>
+                              <div class="trade-sub">Counterparty: <%= t.initiatorUsername || ('User #' + t.initiator_id) %></div>
+                              <div class="trade-sub">Last updated: <%= new Date(t.updated_at || t.created_at).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) %></div>
+                            </div>
+                          </div>
+                          <div class="trade-item-side">
+                            <span class="pill pill-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span>
+                            <button type="button" class="trade-view-toggle" aria-expanded="false" aria-controls="<%= panelId %>">View</button>
+                          </div>
+                        </div>
+                        <div class="trade-item-panel" id="<%= panelId %>" hidden>
+                          <form action="/trades/<%= t.id %>/offer" method="POST" class="row g-2 align-items-end">
+                            <div class="col-12 col-md-6">
+                              <label class="form-label text-white-50">Offer your card</label>
+                              <select class="form-select form-select-sm" name="productId" required>
+                                <option value="">Select</option>
+                                <% products.forEach(p => { %>
+                                  <option value="<%= p.id %>"><%= p.productName %></option>
+                                <% }); %>
+                              </select>
+                            </div>
+                            <div class="col-12 col-md-4">
+                              <label class="form-label text-white-50">Note (optional)</label>
+                              <input class="form-control form-control-sm" name="note" maxlength="255" placeholder="Message">
+                            </div>
+                            <div class="col-12 col-md-2 d-grid">
+                              <button type="submit" class="btn btn-ghost btn-sm">Offer</button>
+                            </div>
+                          </form>
+                        </div>
+                      </article>
+                    <% }) %>
+                  </div>
+                <% } %>
+              </div>
+
+              <div class="trade-section">
+                <div class="trade-section-title">
+                  <h6 class="mb-0">Your active trades</h6>
+                  <span class="badge text-bg-secondary"><%= activeTrades.length %></span>
+                </div>
+                <% if (!activeTrades.length) { %>
+                  <p class="text-white-50 mb-0">You have no active trades.</p>
+                <% } else { %>
+                  <div class="trade-list trade-sort-list">
+                    <% activeTrades.forEach(t => { %>
+                      <% const isOwner = t.initiator_id === user.id; %>
+                      <% const isResponder = t.responder_id === user.id; %>
+                      <% const ownerCard = t.initiator_card_name || t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
+                      <% const responderCard = t.responder_card_name || (t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null); %>
+                      <% const ownerLabel = isOwner ? 'You' : (t.initiatorUsername || ('User #' + t.initiator_id)); %>
+                      <% const responderLabel = isResponder ? 'You' : (t.responderUsername || (t.responder_id ? ('User #' + t.responder_id) : '')); %>
+                      <% const counterpartyLabel = isOwner ? (responderLabel || 'Waiting for offer') : ownerLabel; %>
+                      <% const needsAction = (t.status === 'pending_initiator' && t.responder_id && isOwner) ? 1 : 0; %>
+                      <% const panelId = `trade-board-active-${t.id}`; %>
+                      <% const thumbSrc = t.initiator_card_image ? `/uploads/${t.initiator_card_image}` : ''; %>
+                      <article class="trade-item-card" data-needs-action="<%= needsAction %>" data-last-updated="<%= new Date(t.updated_at || t.created_at).getTime() || 0 %>">
+                        <div class="trade-item-summary">
+                          <div class="trade-item-main">
+                            <% if (thumbSrc) { %>
+                              <img class="trade-thumb" src="<%= thumbSrc %>" alt="<%= ownerCard %> thumbnail">
+                            <% } else { %>
+                              <div class="trade-thumb" aria-hidden="true">TCG</div>
+                            <% } %>
+                            <div>
+                              <div class="trade-name"><%= ownerCard %></div>
+                              <div class="trade-sub">Counterparty: <%= counterpartyLabel %></div>
+                              <div class="trade-sub">Last updated: <%= new Date(t.updated_at || t.created_at).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) %></div>
+                            </div>
+                          </div>
+                          <div class="trade-item-side">
+                            <span class="pill pill-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span>
+                            <button type="button" class="trade-view-toggle" aria-expanded="false" aria-controls="<%= panelId %>">View</button>
+                          </div>
+                        </div>
+                        <div class="trade-item-panel" id="<%= panelId %>" hidden>
+                          <% if (isOwner) { %>
+                            <div class="trade-sub mb-2">You offered: <%= ownerCard %></div>
+                            <% if (responderCard) { %>
+                              <div class="trade-sub mb-2"><%= responderLabel || 'They' %> offered: <%= responderCard %></div>
+                            <% } else { %>
+                              <div class="trade-sub mb-2">Awaiting an offer.</div>
+                            <% } %>
+                          <% } else { %>
+                            <div class="trade-sub mb-2"><%= ownerLabel %> offered: <%= ownerCard %></div>
+                            <% if (responderCard) { %>
+                              <div class="trade-sub mb-2"><%= responderLabel %> offered: <%= responderCard %></div>
+                            <% } else { %>
+                              <div class="trade-sub mb-2">You offered this card.</div>
+                            <% } %>
+                          <% } %>
+                          <% if (t.status === 'pending_initiator' && t.responder_id && isOwner) { %>
+                            <div class="d-flex gap-2 mb-2">
+                              <form action="/trades/<%= t.id %>/accept" method="POST">
+                                <button type="submit" class="btn btn-success btn-sm">Accept</button>
+                              </form>
+                              <form action="/trades/<%= t.id %>/decline" method="POST">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">Decline</button>
+                              </form>
+                            </div>
+                          <% } %>
+                          <% if (isOwner && (t.status === 'open' || t.status === 'pending_initiator')) { %>
+                            <form action="/trades/<%= t.id %>/cancel" method="POST">
+                              <button type="submit" class="btn btn-outline-light btn-sm">Cancel trade</button>
+                            </form>
+                          <% } %>
+                        </div>
+                      </article>
+                    <% }) %>
+                  </div>
+                <% } %>
+              </div>
+            </section>
+
+            <section id="trade-board-history" class="trade-panel" role="tabpanel" aria-labelledby="trade-board-tab-history" data-tab-panel="history" hidden>
+              <div class="trade-section-title">
+                <h6 class="mb-0">Trade history</h6>
+                <span class="badge text-bg-secondary"><%= historyTrades.length %></span>
+              </div>
+              <% if (!historyTrades.length) { %>
+                <p class="text-white-50 mb-0">No trade history yet.</p>
+              <% } else { %>
+                <div class="trade-list trade-sort-list">
+                  <% historyTrades.forEach(t => { %>
+                    <% const isOwner = t.initiator_id === user.id; %>
+                    <% const isResponder = t.responder_id === user.id; %>
+                    <% const ownerCard = t.initiator_card_name || t.initiatorProductName || ('Card #' + t.initiator_product_id); %>
+                    <% const responderCard = t.responder_card_name || (t.responder_product_id ? (t.responderProductName || ('Card #' + t.responder_product_id)) : null); %>
+                    <% const ownerLabel = isOwner ? 'You' : (t.initiatorUsername || ('User #' + t.initiator_id)); %>
+                    <% const responderLabel = isResponder ? 'You' : (t.responderUsername || (t.responder_id ? ('User #' + t.responder_id) : '')); %>
+                    <% const counterpartyLabel = isOwner ? (responderLabel || 'Unknown') : ownerLabel; %>
+                    <% const panelId = `trade-board-history-${t.id}`; %>
+                    <% const thumbSrc = t.initiator_card_image ? `/uploads/${t.initiator_card_image}` : ''; %>
+                    <article class="trade-item-card" data-needs-action="0" data-last-updated="<%= new Date(t.updated_at || t.created_at).getTime() || 0 %>">
+                      <div class="trade-item-summary">
+                        <div class="trade-item-main">
+                          <% if (thumbSrc) { %>
+                            <img class="trade-thumb" src="<%= thumbSrc %>" alt="<%= ownerCard %> thumbnail">
+                          <% } else { %>
+                            <div class="trade-thumb" aria-hidden="true">TCG</div>
+                          <% } %>
+                          <div>
+                            <div class="trade-name"><%= ownerCard %></div>
+                            <div class="trade-sub">Counterparty: <%= counterpartyLabel %></div>
+                            <div class="trade-sub">Last updated: <%= new Date(t.updated_at || t.created_at).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) %></div>
+                          </div>
+                        </div>
+                        <div class="trade-item-side">
+                          <span class="pill pill-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span>
+                          <button type="button" class="trade-view-toggle" aria-expanded="false" aria-controls="<%= panelId %>">View</button>
+                        </div>
+                      </div>
+                      <div class="trade-item-panel" id="<%= panelId %>" hidden>
+                        <div class="trade-sub mb-2"><%= ownerLabel %> offered: <%= ownerCard %></div>
+                        <% if (responderCard) { %>
+                          <div class="trade-sub mb-2"><%= responderLabel %> offered: <%= responderCard %></div>
+                        <% } %>
+                        <% if (t.status === 'accepted') { %>
+                          <a class="btn btn-ghost btn-sm" href="/trade-chat">Open chat</a>
+                        <% } %>
+                      </div>
+                    </article>
+                  <% }) %>
+                </div>
+              <% } %>
+            </section>
+          </div>
+        </div>
+      </div>
+
     </div>
   </main>
   <footer class="site-footer mt-auto">
@@ -520,5 +842,64 @@
       <small class="small">© <%= new Date().getFullYear() %> PokeVault. All rights reserved.</small>
     </div>
   </footer>
+  <script>
+    (function () {
+      const tabButtons = Array.from(document.querySelectorAll('.trade-tab-btn'));
+      const tabPanels = Array.from(document.querySelectorAll('[data-tab-panel]'));
+
+      function activateTab(key) {
+        tabButtons.forEach((btn) => {
+          const isActive = btn.dataset.tabTarget === key;
+          btn.classList.toggle('active', isActive);
+          btn.setAttribute('aria-selected', String(isActive));
+          btn.setAttribute('tabindex', isActive ? '0' : '-1');
+        });
+        tabPanels.forEach((panel) => {
+          panel.hidden = panel.dataset.tabPanel !== key;
+        });
+      }
+
+      tabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => activateTab(btn.dataset.tabTarget));
+        btn.addEventListener('keydown', (evt) => {
+          if (evt.key !== 'ArrowRight' && evt.key !== 'ArrowLeft') return;
+          evt.preventDefault();
+          const current = tabButtons.indexOf(btn);
+          const next = evt.key === 'ArrowRight'
+            ? (current + 1) % tabButtons.length
+            : (current - 1 + tabButtons.length) % tabButtons.length;
+          tabButtons[next].focus();
+          activateTab(tabButtons[next].dataset.tabTarget);
+        });
+      });
+      activateTab('active');
+
+      document.querySelectorAll('.trade-sort-list').forEach((list) => {
+        const cards = Array.from(list.querySelectorAll('.trade-item-card'));
+        cards.sort((a, b) => {
+          const aAction = Number(a.dataset.needsAction || 0);
+          const bAction = Number(b.dataset.needsAction || 0);
+          if (bAction !== aAction) return bAction - aAction;
+          const aTime = Number(a.dataset.lastUpdated || 0);
+          const bTime = Number(b.dataset.lastUpdated || 0);
+          return bTime - aTime;
+        });
+        cards.forEach((card) => list.appendChild(card));
+      });
+
+      document.addEventListener('click', (evt) => {
+        const toggle = evt.target.closest('.trade-view-toggle');
+        if (!toggle) return;
+        const panelId = toggle.getAttribute('aria-controls');
+        if (!panelId) return;
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+        const shouldExpand = panel.hidden;
+        panel.hidden = !shouldExpand;
+        toggle.setAttribute('aria-expanded', String(shouldExpand));
+        toggle.textContent = shouldExpand ? 'Hide' : 'View';
+      });
+    })();
+  </script>
 </body>
 </html>
